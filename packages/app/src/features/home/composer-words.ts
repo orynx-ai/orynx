@@ -59,6 +59,15 @@ export const composerWords = {
       notConnected: 'Connect GitHub in Settings to add pull requests.',
     },
     file: { title: 'File from this computer', description: 'Any file. Claude reads it where it is.' },
+    // Spec 016, Q8: the item's name; the rest follows the other lists' words.
+    thread: {
+      title: 'Slack or Discord thread',
+      description: 'From the messages waiting on you',
+      search: 'Search messages by who, where or what they said',
+      note: 'Claude gets the whole thread: who said what, oldest first.',
+      empty: 'Nobody is waiting on a reply. Paste a message link to add any thread.',
+      notConnected: 'Connect Slack or Discord in Settings to add threads.',
+    },
   },
   noMatches: 'No matches. Try a key like PROJ-1423 or a repo name.',
   folder: {

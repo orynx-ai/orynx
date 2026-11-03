@@ -109,7 +109,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 27: Pasting a Slack or Discord link makes a thread chip through the preview, labelled "Neha K. in #web-platform"; not connected and not found say so; the follow-up box does the same; `context_failed` names the thread (AC-26, AC-27, AC-32)
       Check: pnpm test packages/app/src/features/home/composer-rules.test.ts packages/app/src/features/home/components/home-composer.test.tsx packages/app/src/features/sessions/components/follow-up-box.test.tsx
       Files: packages/app/src/features/home/composer-rules.ts, composer-words.ts, packages/app/src/features/home/components/home-composer.tsx, packages/app/src/features/sessions/components/follow-up-box.tsx, packages/app/src/features/home/queries.ts, their tests
-- [ ] Task 28: + Add context › "Slack or Discord thread" lists the inbox's messages with a search and keyboard; a message row's Add to composer adds and removes its thread; the session's Context tab lists thread chips (AC-28, AC-29, AC-30)
+- [x] Task 28: + Add context › "Slack or Discord thread" lists the inbox's messages with a search and keyboard; a message row's Add to composer adds and removes its thread; the session's Context tab lists thread chips (AC-28, AC-29, AC-30)
       Check: pnpm test packages/app/src/features/home/components/add-context.test.tsx packages/app/src/features/home/components/attention-panel.test.tsx packages/app/src/features/sessions/components/context-panel.test.tsx
       Files: packages/app/src/features/home/components/add-context.tsx, attention-panel.tsx, packages/app/src/features/home/inbox-words.ts, packages/app/src/features/sessions/components/context-panel.tsx, their tests
 

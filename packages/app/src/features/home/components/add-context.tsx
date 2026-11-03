@@ -1,5 +1,12 @@
 import { useRef, useState } from 'react';
-import { File01Icon, Folder01Icon, GitBranchIcon, PlusSignIcon, Ticket01Icon } from '@hugeicons/core-free-icons';
+import {
+  BubbleChatIcon,
+  File01Icon,
+  Folder01Icon,
+  GitBranchIcon,
+  PlusSignIcon,
+  Ticket01Icon,
+} from '@hugeicons/core-free-icons';
 import { Link } from '@tanstack/react-router';
 import { type ComposerChip, type InboxToolState, ticketSource } from '@devhub/contracts';
 import {
@@ -17,15 +24,16 @@ import { matchesWords } from '../../../words/match-words.ts';
 import { useSearchIndex } from '../../search/queries.ts';
 import { FolderDialog } from '../../settings/components/folder-dialog.tsx';
 import { useRepositories } from '../../settings/queries.ts';
-import { chipFromPaste, fileChipFor, firstTicket, folderFor, refusalFor } from '../composer-rules.ts';
+import { chipFromPaste, fileChipFor, firstTicket, folderFor, refusalFor, sameChip } from '../composer-rules.ts';
+import { subLine, threadChipOf } from '../inbox-words.ts';
 import { addRow, composerWords, countOf, fileRefusedLine, refusedLine } from '../composer-words.ts';
-import { usePickFiles } from '../queries.ts';
+import { useInbox, usePickFiles } from '../queries.ts';
 import { useComposerChips } from '../composer-chips.tsx';
 import { useComposerStore } from '../store.ts';
 import { AddFileDialog } from './add-file-dialog.tsx';
 
 const words = composerWords.kinds;
-type ListKind = 'repository' | 'jira' | 'pull_request';
+type ListKind = 'repository' | 'jira' | 'pull_request' | 'thread';
 const jiraKey = /^[A-Z][A-Z0-9_]{0,99}-[1-9]\d{0,9}$/;
 
 /** A list's head and foot, as each kind words them. */
@@ -33,6 +41,7 @@ const lists = {
   repository: words.repository,
   jira: words.jira,
   pull_request: words.pullRequest,
+  thread: words.thread,
 } as const;
 
 /** What a list shows in place of options while its tool isn't ready (Q15a). */
@@ -154,6 +163,70 @@ function ToolList({ kind, query, onQueryChange, onBack, onTicked }: ListProps & 
       loading={loading}
       // Orynx's own tickets are listed with Jira not connected (spec 037); the notice stands for an empty list alone.
       notice={full ?? (known.length === 0 ? toolNotice(tool, said.notConnected) : undefined)}
+      note={said.note}
+    />
+  );
+}
+
+/**
+ * Slack's and Discord's threads, from the messages waiting on you in the inbox (spec 016, C); typing never asks
+ * again. Each option adds or takes out its thread's chip, and the list stays open, as the others do. Any other thread
+ * is added by pasting its link.
+ */
+function ThreadList({ query, onQueryChange, onBack, onTicked }: ListProps) {
+  const inbox = useInbox();
+  const { chips, addChip, dropChip } = useComposerChips();
+  const said = lists.thread;
+  const tools = inbox.data?.tools;
+  const loading = inbox.data === undefined;
+  const known = (inbox.data?.items ?? []).flatMap((item) => {
+    const chip = threadChipOf(item);
+    if (chip === null || item.source === null) return [];
+    const where = subLine(item);
+    return [
+      {
+        value: item.id,
+        label: where,
+        description: item.title,
+        mark: <SourceMark source={item.source} label="none" />,
+        added: chips.some((held) => sameChip(held, chip)),
+        chip,
+        words: `${where} ${item.title}`,
+      },
+    ];
+  });
+  const options = known.filter((option) => matchesWords(option.words, query));
+  const refusal = refusalFor(chips, 'slack_thread');
+  const neither = tools?.slack.state === 'not_connected' && tools.discord.state === 'not_connected';
+  const notice =
+    refusal !== null ? (
+      refusedLine(refusal)
+    ) : neither ? (
+      <Link to="/settings/$tab" params={{ tab: 'connections' }} className="text-info underline">
+        {said.notConnected}
+      </Link>
+    ) : undefined;
+
+  return (
+    <ContextSearch
+      title={said.title}
+      count={loading || neither ? undefined : `${String(known.length)} ${known.length === 1 ? 'thread' : 'threads'}`}
+      onBack={onBack}
+      searchLabel={said.search}
+      query={query}
+      onQueryChange={onQueryChange}
+      options={options}
+      select="many"
+      onPick={(value) => {
+        const option = options.find((candidate) => candidate.value === value);
+        if (option === undefined) return;
+        onTicked();
+        if (option.added) dropChip(option.chip);
+        else addChip(option.chip);
+      }}
+      emptyText={query.trim() === '' ? said.empty : composerWords.noMatches}
+      loading={loading}
+      notice={notice}
       note={said.note}
     />
   );
@@ -357,6 +430,16 @@ export function AddContext({
                 {words.pullRequest.title}
               </ContextKindItem>
               <ContextKindItem
+                icon={<Icon icon={BubbleChatIcon} className="text-muted-foreground" />}
+                description={words.thread.description}
+                leadsOn
+                onSelect={() => {
+                  openList('thread');
+                }}
+              >
+                {words.thread.title}
+              </ContextKindItem>
+              <ContextKindItem
                 icon={<Icon icon={File01Icon} className="text-muted-foreground" />}
                 description={words.file.description}
                 onSelect={() => {
@@ -369,6 +452,8 @@ export function AddContext({
             </>
           ) : view === 'repository' ? (
             <FolderList {...listProps} />
+          ) : view === 'thread' ? (
+            <ThreadList {...listProps} />
           ) : (
             <ToolList kind={view} {...listProps} />
           )}

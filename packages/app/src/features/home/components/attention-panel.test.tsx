@@ -1047,4 +1047,20 @@ describe('Slack and Discord tabs (spec 016)', () => {
     expect(reconnect.closest('p')?.textContent).toContain('Slack refused the saved token.');
     expect(within(panel).getByRole('link', { name: slackRow.title })).toBeVisible();
   });
+
+  it('AC-29: a message row’s Add to composer adds its thread, and pressing it again takes it out', async () => {
+    inboxWith([slackRow], { tools: { slack: synced } });
+    const { user, panel } = await openHome('/?inbox=slack');
+
+    await user.click(within(panel).getByRole('button', { name: /Add Neha K\. in #web-platform/ }));
+    const strip = await screen.findByRole('list', { name: 'Context for Claude' });
+    expect(
+      within(strip)
+        .getAllByRole('listitem')
+        .map((chip) => chip.textContent),
+    ).toEqual(['Neha K. in #web-platform']);
+
+    await user.click(within(panel).getByRole('button', { name: /Remove Neha K\. in #web-platform/ }));
+    expect(screen.queryByRole('list', { name: 'Context for Claude' })).not.toBeInTheDocument();
+  });
 });

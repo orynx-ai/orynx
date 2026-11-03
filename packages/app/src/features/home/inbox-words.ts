@@ -1,4 +1,11 @@
-import type { ComposerChip, Inbox, InboxItem, InboxRules, InboxTab } from '@devhub/contracts';
+import {
+  threadFromLink,
+  type ComposerChip,
+  type Inbox,
+  type InboxItem,
+  type InboxRules,
+  type InboxTab,
+} from '@devhub/contracts';
 import type { PillTone } from '@devhub/ui';
 import { personName } from '../../shell/person-name.ts';
 import { agoText } from '../../words/ago.ts';
@@ -123,10 +130,26 @@ export type RowAction =
   | { kind: 'review'; chip: Extract<ComposerChip, { kind: 'pull_request' }>; label: string; name: string }
   | { kind: 'none' };
 
+/** A message row's thread as a chip, named as the row says it (spec 016, C); null for any other row. */
+export function threadChipOf(
+  item: InboxItem,
+): Extract<ComposerChip, { kind: 'slack_thread' | 'discord_thread' }> | null {
+  const { subject, target } = item;
+  if (subject.kind !== 'message' || target.kind !== 'external') return null;
+  const chip = threadFromLink(target.url);
+  if (chip === null) return null;
+  return { ...chip, label: { from: subject.from, channel: subject.channel, server: subject.server } };
+}
+
 export function rowAction(item: InboxItem): RowAction {
   const { subject, target } = item;
   if (target.kind === 'session') {
     return { kind: 'session', sessionId: target.sessionId, label: 'Open session', name: `Open session: ${item.title}` };
+  }
+  // A message's thread can go to Claude as context (spec 016, AC-29).
+  if (subject.kind === 'message') {
+    const thread = threadChipOf(item);
+    return thread === null ? { kind: 'none' } : { kind: 'compose', chip: thread, label: chipLabel(thread) };
   }
   if (subject.kind === 'issue')
     return { kind: 'compose', chip: { kind: 'jira', key: subject.key }, label: subject.key };

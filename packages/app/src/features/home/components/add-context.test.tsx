@@ -2,7 +2,14 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { apiRoutes, type SearchIndex } from '@devhub/contracts';
-import { makeRepository, makeSearchIndex, makeSearchPullRequest, makeSearchTicket } from '@devhub/contracts/testing';
+import {
+  makeInbox,
+  makeRepository,
+  makeSearchIndex,
+  makeSearchPullRequest,
+  makeSearchTicket,
+  makeSlackItem,
+} from '@devhub/contracts/testing';
 import { apiUrl, server } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
 import { useComposerStore } from '../store.ts';
@@ -38,7 +45,7 @@ async function openKind(user: Awaited<ReturnType<typeof renderApp>>['user'], kin
 }
 
 describe('+ Add context (spec 015)', () => {
-  it('AC-6: offers a folder, a ticket, a pull request and a file, with the tip, and no Slack yet (Q12)', async () => {
+  it('AC-6, 016 AC-28: offers a folder, a ticket, a pull request, a Slack or Discord thread and a file, with the tip', async () => {
     serve();
     const { user } = await renderApp();
     await user.click(await screen.findByRole('button', { name: 'Add context' }));
@@ -52,6 +59,7 @@ describe('+ Add context (spec 015)', () => {
       'Git repositoryThe folder Claude works in',
       'TicketSearch by key or title',
       'Pull requestSearch by repo, number or title',
+      'Slack or Discord threadFrom the messages waiting on you',
       'File from this computerAny file. Claude reads it where it is.',
     ]);
     expect(menu).toHaveAccessibleDescription('Tip: you can also paste a Jira key or a pull request link into the box.');
@@ -313,5 +321,36 @@ describe('+ Add context (spec 015)', () => {
     await user.click(option);
 
     expect(chips().map((chip) => chip.textContent)).toEqual(['ORX-2']);
+  });
+
+  it('016 AC-28: lists the inbox’s messages to search, ticks one into a chip, and Esc goes back to the kinds', async () => {
+    serve();
+    const synced = { state: 'synced', at: '2026-10-17T10:00:00.000Z' } as const;
+    server.use(
+      http.get(apiUrl(apiRoutes.inbox), () =>
+        HttpResponse.json(makeInbox({ items: [makeSlackItem()], tools: { slack: synced } })),
+      ),
+    );
+    const { user } = await renderApp();
+    await openKind(user, /^Slack or Discord thread/);
+
+    const dialog = await screen.findByRole('dialog', { name: 'Slack or Discord thread' });
+    await user.type(within(dialog).getByRole('combobox'), 'archive');
+    await user.click(within(dialog).getByRole('option', { name: /Neha K\. in #web-platform/ }));
+
+    await waitFor(() => {
+      expect(chips().map((chip) => chip.textContent)).toEqual(['Neha K. in #web-platform']);
+    });
+  });
+
+  it('016 AC-28: with neither Slack nor Discord connected, the list says to connect one', async () => {
+    serve();
+    const { user } = await renderApp();
+    await openKind(user, /^Slack or Discord thread/);
+
+    const dialog = await screen.findByRole('dialog', { name: 'Slack or Discord thread' });
+    expect(
+      await within(dialog).findByRole('link', { name: 'Connect Slack or Discord in Settings to add threads.' }),
+    ).toBeVisible();
   });
 });
