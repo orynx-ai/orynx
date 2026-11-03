@@ -45,6 +45,7 @@ import {
   type SearchIndex,
   type ServerEvent,
   type ApprovalDecision,
+  type QuestionAnswer,
   type CreatePullRequestAnswer,
   type CreatePullRequestRequest,
   type FileDiff,
@@ -230,7 +231,11 @@ export interface ApiClient {
    * Answers a call waiting in a session (spec 012); rejects with already_answered when another answer came
    * first, and settings_unsaved when Always allow couldn't save the list.
    */
-  respondToApproval(id: string, approvalId: string, decision: ApprovalDecision): Promise<void>;
+  respondToApproval(
+    id: string,
+    approvalId: string,
+    decision: ApprovalDecision | { answers: QuestionAnswer[] },
+  ): Promise<void>;
   /** A follow-up (spec 013): answers sent, or why it can't go. */
   sendMessage(id: string, request: SendMessageInput): Promise<SendMessageAnswer>;
   /** Exactly what Orynx sent Claude at the start (spec 011, Q5); text null before anything was sent. */

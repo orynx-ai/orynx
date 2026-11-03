@@ -17,7 +17,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 5: The brief's new line, and the question's notification without its text on the desktop (AC-13, AC-24, Q5)
       Check: pnpm test packages/core/src/sessions/brief.test.ts packages/core/src/notifications
       Files: packages/core/src/sessions/brief.ts, brief.test.ts, packages/core/src/notifications/session-notifications.ts, its test
-- [ ] Task 6: `postApproval` sends the answers (AC-2)
+- [x] Task 6: `postApproval` sends the answers (AC-2)
       Check: pnpm test packages/api-client/src/sessions.test.ts
       Files: packages/api-client/src/endpoints/sessions.ts, packages/api-client/src/sessions.test.ts, packages/api-client/src/client.ts, packages/app/src/features/sessions/queries.ts
 - [ ] Task 7: `ChoiceCard` with `multiple`: a checkbox in the same card, with a story for each state and a test (Q2)

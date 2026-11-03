@@ -312,6 +312,23 @@ describe('createApiClient().respondToApproval() (spec 012)', () => {
     ]);
   });
 
+  it("051 AC-2: posts your answers to Claude's question, in its order", async () => {
+    const sent: unknown[] = [];
+    server.use(
+      http.post(`${baseURL}/api/sessions/:id/approvals/:approvalId`, async ({ request }) => {
+        sent.push(await request.json());
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const api = createApiClient({ baseURL, token: 't' });
+    const answers = [
+      { picked: ['date-fns'], other: null },
+      { picked: [], other: 'And a smoke test' },
+    ];
+    await api.respondToApproval('0123456789abcdef', 'approval-q1', { answers });
+    expect(sent).toEqual([{ decision: 'answer', answers }]);
+  });
+
   it('AC-13, AC-14: rejects with the code the page words: answered already, or the list not saved', async () => {
     const api = createApiClient({ baseURL, token: 't' });
     for (const [status, code] of [
