@@ -45,7 +45,7 @@ export function sessionNotifications(before: Session, after: Session, { quiet = 
     .map((approval) => approvalNotificationId(after.id, approval.id));
   if (quiet || after.discardedAt !== null) return { added: [], ended };
 
-  const session = { id: after.id, title: after.title, source: after.source };
+  const session = { id: after.id, title: after.title, source: after.source, agent: after.agent };
   const added: SessionNotices['added'] = after.approvals
     .filter((approval) => !asked.has(approval.id))
     .map((approval) => ({

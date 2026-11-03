@@ -263,17 +263,17 @@ const eventGroups: readonly {
   events: readonly { id: NotificationEvent; label: string; line: string }[];
 }[] = [
   {
-    heading: 'Claude sessions',
+    heading: 'Agent sessions',
     events: [
       {
         id: 'approval',
         // Questions share the row (spec 051, Q6).
-        label: 'Claude is waiting for you',
+        label: 'The agent is waiting for you',
         line: 'A command, an edit, a push, a pull request or a question needs you',
       },
       { id: 'session_finished', label: 'Session finished', line: 'Ready for you to review the changes' },
       { id: 'session_ended', label: 'Session failed or stopped', line: 'An error, or you pressed Stop' },
-      { id: 'session_limit', label: 'Session hit a limit', line: 'Claude’s usage limit ended it' },
+      { id: 'session_limit', label: 'Session hit a limit', line: 'The agent’s usage limit ended it' },
     ],
   },
   {
@@ -559,11 +559,11 @@ function DoNotDisturbSection({ saved, loading, save }: SectionProps) {
         </SettingRow>
         <div className="px-4">
           <Checkbox
-            aria-label="Still tell me when Claude is waiting for approval"
+            aria-label="Still tell me when the agent is waiting for approval"
             aria-describedby={ids.breakLine}
             label={
               <span className="flex flex-col gap-0.5">
-                <span className="font-medium">Still tell me when Claude is waiting for approval</span>
+                <span className="font-medium">Still tell me when the agent is waiting for approval</span>
                 <span id={ids.breakLine} className="text-small text-muted-foreground">
                   Otherwise a session can sit paused all night.
                 </span>

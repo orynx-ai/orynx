@@ -49,6 +49,7 @@ import { useTicketDialogStore } from '../../tickets/ticket-dialog-store.ts';
 import { holds } from '../composer-rules.ts';
 import { composerWords, refusedLine } from '../composer-words.ts';
 import { useComposerStore } from '../store.ts';
+import { forAgent } from '../../../words/agent-words.ts';
 
 const panelTitle = 'Needs your attention';
 
@@ -533,7 +534,8 @@ function FixPullRequest({ action }: { action: Extract<RowAction, { kind: 'fix' }
   const start = useStartFromComposer();
   const model = useComposerStore((state) => state.model);
   const effort = useComposerStore((state) => state.effort);
-  const choice = useAgentChoice(model, effort);
+  const agent = useComposerStore((state) => state.agent);
+  const choice = useAgentChoice(model, effort, agent);
   const addChip = useComposerStore((state) => state.addChip);
   const setMode = useComposerStore((state) => state.setMode);
   const setTried = useComposerStore((state) => state.setTried);
@@ -580,14 +582,15 @@ function ReviewPullRequest({ action }: { action: Extract<RowAction, { kind: 'rev
   const start = useStartFromComposer();
   const model = useComposerStore((state) => state.model);
   const effort = useComposerStore((state) => state.effort);
-  const choice = useAgentChoice(model, effort);
+  const agent = useComposerStore((state) => state.agent);
+  const choice = useAgentChoice(model, effort, agent);
   const setTried = useComposerStore((state) => state.setTried);
   return (
     <IconButton
       variant="ghost"
       size="sm"
-      label={action.label}
-      aria-label={action.name}
+      label={forAgent(action.label, choice.agent ?? 'claude')}
+      aria-label={forAgent(action.name, choice.agent ?? 'claude')}
       disabled={start.isPending}
       onClick={() => {
         const request: ComposerStart = { message: '', context: [action.chip], ...choice, mode: 'ask', review: true };

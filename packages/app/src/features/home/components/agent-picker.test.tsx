@@ -19,7 +19,7 @@ function connected(answer: AgentModels = listed) {
   const posted: unknown[] = [];
   server.use(
     http.get(apiUrl(apiRoutes.status), () =>
-      HttpResponse.json(makeStatus({ agent: { id: 'claude', connected: true } })),
+      HttpResponse.json(makeStatus({ agents: { claude: { connected: true } } })),
     ),
     http.get(apiUrl(apiRoutes.agentModels), () => HttpResponse.json(answer)),
     http.get(apiUrl(apiRoutes.repositories), () => HttpResponse.json({ repositories: [makeRepository()] })),
@@ -48,7 +48,7 @@ describe('the composer’s agent picker (spec 015, Q10)', () => {
   it('AC-19: Claude connected runs locally, with nothing to fix', async () => {
     server.use(
       http.get(apiUrl(apiRoutes.status), () =>
-        HttpResponse.json(makeStatus({ agent: { id: 'claude', connected: true } })),
+        HttpResponse.json(makeStatus({ agents: { claude: { connected: true } } })),
       ),
     );
     const { user } = await renderApp();
@@ -141,5 +141,106 @@ describe('the composer’s agent picker (spec 015, Q10)', () => {
     });
     expect(posted[0]).not.toHaveProperty('model');
     expect(posted[0]).not.toHaveProperty('effort');
+  });
+});
+
+describe('the agent picker with Codex (spec 052)', () => {
+  const codexModels: AgentModel[] = [
+    { value: 'gpt-5.5-codex', displayName: 'GPT-5.5 Codex', description: 'Best for coding', efforts: ['low', 'high'] },
+  ];
+
+  /** Claude and Codex as asked, each offering its models; returns every body Send posted. */
+  function agents({ claude = true, codex = true }: { claude?: boolean; codex?: boolean } = {}) {
+    const posted: unknown[] = [];
+    server.use(
+      http.get(apiUrl(apiRoutes.status), () =>
+        HttpResponse.json(makeStatus({ agents: { claude: { connected: claude }, codex: { connected: codex } } })),
+      ),
+      http.get(apiUrl(apiRoutes.agentModels), ({ request }) =>
+        HttpResponse.json(
+          new URL(request.url).searchParams.get('agent') === 'codex' ? { state: 'ready', models: codexModels } : listed,
+        ),
+      ),
+      http.get(apiUrl(apiRoutes.repositories), () => HttpResponse.json({ repositories: [makeRepository()] })),
+      http.post(apiUrl(apiRoutes.sessions), async ({ request }) => {
+        posted.push(await request.json());
+        return HttpResponse.json({ result: 'started', sessionId: '0123456789abcdef' });
+      }),
+    );
+    return posted;
+  }
+
+  async function send(
+    user: Awaited<ReturnType<typeof renderApp>>['user'],
+    history: Awaited<ReturnType<typeof renderApp>>['history'],
+  ) {
+    await user.type(screen.getByRole('textbox', { name: /^Describe a task for/ }), 'Add a CSV export{Enter}');
+    await waitFor(() => {
+      expect(history.location.pathname).toBe('/sessions/0123456789abcdef');
+    });
+  }
+
+  it("AC-4: lists Claude's models, then Codex's, each under its agent's name", async () => {
+    agents();
+    const { user } = await renderApp();
+
+    await user.click(await screen.findByRole('button', { name: 'Agent: Claude, Default, connected' }));
+    const menu = await screen.findByRole('menu', { name: 'Agent' });
+    expect(within(menu).getByText('Claude')).toBeVisible();
+    const items = within(menu)
+      .getAllByRole('menuitemradio')
+      .map((item) => item.textContent);
+    expect(items.slice(0, 4)).toEqual([
+      expect.stringContaining('Default'),
+      expect.stringContaining('Sonnet'),
+      expect.stringContaining('Haiku'),
+      expect.stringContaining('GPT-5.5 Codex'),
+    ]);
+    expect(within(menu).getByText('Codex')).toBeVisible();
+  });
+
+  it('AC-5, AC-26: picking a Codex model from the keyboard sends it, and it stays picked', async () => {
+    const posted = agents();
+    const { user, history } = await renderApp();
+    const trigger = await screen.findByRole('button', { name: 'Agent: Claude, Default, connected' });
+    trigger.focus();
+    await user.keyboard('{Enter}');
+    const menu = await screen.findByRole('menu', { name: 'Agent' });
+    await user.click(within(menu).getByRole('menuitemradio', { name: /GPT-5.5 Codex/ }));
+
+    expect(await screen.findByRole('button', { name: 'Agent: Codex, GPT-5.5 Codex, connected' })).toBeVisible();
+    await send(user, history);
+    expect(posted).toEqual([expect.objectContaining({ agent: 'codex', model: 'gpt-5.5-codex' })]);
+    expect(useComposerStore.getState()).toMatchObject({ agent: 'codex', model: 'gpt-5.5-codex' });
+  });
+
+  it('AC-6: Codex picked, then signed out, falls back to Claude and its default', async () => {
+    const posted = agents({ codex: false });
+    useComposerStore.setState({ agent: 'codex', model: 'gpt-5.5-codex', effort: 'high' });
+    const { user, history } = await renderApp();
+
+    expect(await screen.findByRole('button', { name: 'Agent: Claude, Default, connected' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Agent: Claude, Default, connected' }));
+    expect(within(await screen.findByRole('menu', { name: 'Agent' })).queryByText('Codex')).toBeNull();
+    await user.keyboard('{Escape}');
+    await send(user, history);
+    expect(posted).toEqual([expect.not.objectContaining({ agent: 'codex' })]);
+    expect(posted).toEqual([expect.not.objectContaining({ model: 'gpt-5.5-codex' })]);
+  });
+
+  it('AC-4: with Codex alone signed in, its group is the only one, and a start goes to Codex', async () => {
+    const posted = agents({ claude: false });
+    const { user, history } = await renderApp();
+
+    await user.click(await screen.findByRole('button', { name: /^Agent: Codex/ }));
+    const menu = await screen.findByRole('menu', { name: 'Agent' });
+    expect(
+      within(menu)
+        .getAllByRole('menuitemradio')
+        .map((item) => item.textContent),
+    ).toEqual([expect.stringContaining('GPT-5.5 Codex')]);
+    await user.keyboard('{Escape}');
+    await send(user, history);
+    expect(posted).toEqual([expect.objectContaining({ agent: 'codex' })]);
   });
 });

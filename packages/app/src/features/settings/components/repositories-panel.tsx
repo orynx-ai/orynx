@@ -86,7 +86,7 @@ export function RepositoriesPanel() {
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
         <p className="m-0 min-w-0 flex-1 text-small text-muted-foreground">
-          Folders on this computer that Claude can work in
+          Folders on this computer that the agent can work in
         </p>
         <Button
           ref={setAddButton}
@@ -117,7 +117,7 @@ export function RepositoriesPanel() {
         <div aria-hidden className="h-14 rounded-md border border-border bg-raised" />
       ) : folders.length === 0 ? (
         <EmptyState title="No folders yet">
-          <span>Add a folder so Claude can work on its code.</span>
+          <span>Add a folder so the agent can work on its code.</span>
         </EmptyState>
       ) : (
         <ul

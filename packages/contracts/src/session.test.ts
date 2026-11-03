@@ -1160,3 +1160,20 @@ describe('a session after its pull request (spec 047)', () => {
     }
   });
 });
+
+describe('the agent a session runs on (spec 052)', () => {
+  it('AC-23: a session saved before spec 052 reads as Claude', () => {
+    const { agent: _none, ...older } = makeSessionSummary();
+    expect(SessionListSchema.parse({ sessions: [older] }).sessions[0]?.agent).toBe('claude');
+    expect(SessionSchema.parse({ ...makeSession(), agent: undefined }).agent).toBe('claude');
+  });
+
+  it('AC-5: keeps Codex, and the composer and a ticket Build both take the agent with the model and effort', () => {
+    expect(makeSession({ agent: 'codex' }).agent).toBe('codex');
+    const choice = { agent: 'codex', model: 'gpt-5.5-codex', effort: 'high' } as const;
+    expect(StartSessionRequestSchema.parse({ ...makeComposerStart(), ...choice })).toMatchObject(choice);
+    expect(StartSessionRequestSchema.parse({ ticketKey: 'PROJ-1423', ...choice })).toMatchObject(choice);
+    expect(SendMessageRequestSchema.parse({ text: 'Go on', ...choice })).toMatchObject(choice);
+    expect(StartSessionRequestSchema.safeParse({ ticketKey: 'PROJ-1423', agent: 'gemini' }).success).toBe(false);
+  });
+});

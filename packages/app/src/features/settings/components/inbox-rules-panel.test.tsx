@@ -12,7 +12,7 @@ const rules = [
   'Pull requests waiting for my review',
   'My pull requests with failing checks',
   'My pull requests with unresolved review comments',
-  'Claude sessions waiting for my approval',
+  'Agent sessions waiting for my approval',
   "Slack mentions and DMs you haven't answered",
   "Discord mentions you haven't answered",
 ];
@@ -85,7 +85,7 @@ describe('InboxRulesPanel', () => {
     );
     await openTab();
 
-    expect(screen.getByRole('checkbox', { name: 'Claude sessions waiting for my approval' })).not.toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Agent sessions waiting for my approval' })).not.toBeChecked();
     expect(screen.getByRole('checkbox', { name: 'Pull requests waiting for my review' })).toBeChecked();
   });
 

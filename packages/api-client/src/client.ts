@@ -7,7 +7,9 @@ import {
   type FileCheckRequest,
   type FilePicks,
   type FolderPick,
+  type AgentId,
   type AgentModels,
+  type CodexLogin,
   type ClaudeLogin,
   type ConnectionCheck,
   type GitHubConnection,
@@ -99,6 +101,7 @@ import {
   type TicketsChoice,
 } from '@devhub/contracts';
 import { getAgentModels, getClaudeLogin, postClaudeLoginCheck } from './endpoints/claude.ts';
+import { getCodexLogin, postCodexLoginCheck } from './endpoints/codex.ts';
 import {
   deleteGitHubConnection,
   getGitHubConnection,
@@ -405,8 +408,12 @@ export interface ApiClient {
   claudeLogin(): Promise<ClaudeLogin>;
   /** Check again: the server asks Claude Code now, or shares a check that's running. */
   checkClaudeLogin(): Promise<ClaudeLogin>;
-  /** The models Claude offers now, with their effort levels, for the composer's agent picker. */
-  agentModels(): Promise<AgentModels>;
+  /** Codex's login on this computer, as the server last read it (spec 052). */
+  codexLogin(): Promise<CodexLogin>;
+  /** Check again: the server asks Codex now, or shares a check that's running. */
+  checkCodexLogin(): Promise<CodexLogin>;
+  /** The models an agent offers now, Claude's unless named, with their effort levels, for the composer's picker. */
+  agentModels(agent?: AgentId): Promise<AgentModels>;
   /** Everything ⌘K search can find, from the server's cache and sessions (spec 009). */
   search(): Promise<SearchIndex>;
   /** Opens the live event stream; returns a function that closes it. */
@@ -606,7 +613,11 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     claudeLogin: () => getClaudeLogin(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     checkClaudeLogin: () =>
       postClaudeLoginCheck(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
-    agentModels: () => getAgentModels(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    codexLogin: () => getCodexLogin(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    checkCodexLogin: () =>
+      postCodexLoginCheck(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    agentModels: (agent = 'claude') =>
+      getAgentModels(http, agent).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     search: () => getSearch(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     subscribe: (onEvent, onError) =>
       subscribeToEvents({

@@ -18,6 +18,8 @@ import {
 import { usePlatform } from '../../../platform.tsx';
 import { usePostReview, useReviewStatus } from '../queries.ts';
 import { reviewProblemLine, reviewWords } from '../review-words.ts';
+import { forAgent } from '../../../words/agent-words.ts';
+import type { AgentId } from '@devhub/contracts';
 
 type ReviewFormValues = z.input<typeof PostReviewRequestSchema>;
 
@@ -42,8 +44,8 @@ export function ReviewMove({ session, review }: { session: Session; review: Sess
   const title = done
     ? reviewWords.postedTitle
     : waiting.length === 0
-      ? reviewWords.nothing
-      : reviewWords.left(waiting.length);
+      ? forAgent(reviewWords.nothing, session.agent)
+      : forAgent(reviewWords.left(waiting.length), session.agent);
   return (
     <Callout
       role="status"
@@ -100,8 +102,9 @@ function PostReview({ session, review }: { session: Session; review: SessionRevi
         <p id={describedBy} className="m-0 text-small text-muted-foreground">
           {reviewWords.going(kept, waiting.length)}
         </p>
-        {pushed > 0 ? <Callout tone="info" title={reviewWords.pushed(pushed)} /> : null}
+        {pushed > 0 ? <Callout tone="info" title={forAgent(reviewWords.pushed(pushed), session.agent)} /> : null}
         <ReviewForm
+          agent={session.agent}
           review={review}
           posting={posting}
           onPosted={() => {
@@ -117,11 +120,13 @@ function PostReview({ session, review }: { session: Session; review: SessionRevi
 }
 
 function ReviewForm({
+  agent,
   review,
   posting,
   onPosted,
   onCancel,
 }: {
+  agent: AgentId;
   review: SessionReview;
   posting: ReturnType<typeof usePostReview>;
   onPosted: () => void;
@@ -164,7 +169,9 @@ function ReviewForm({
           ))}
         </ChoiceGroup>
         {review.verdict === null ? null : (
-          <p className="m-0 text-small text-muted-foreground">{reviewWords.claudeWould[review.verdict]}</p>
+          <p className="m-0 text-small text-muted-foreground">
+            {forAgent(reviewWords.claudeWould[review.verdict], agent)}
+          </p>
         )}
       </div>
       {line === null ? null : (

@@ -1,0 +1,28 @@
+// The fake `codex` (spec 052), as CommonJS for Node: each test's program requires it with its own folder. It writes
+// down how it was run, answers `--version`, and passes `app-server`'s stdio to the folder's socket, where the test
+// plays Codex. A stubborn one ignores SIGTERM and the end of its input alike, so only SIGKILL ends it.
+const fs = require('node:fs');
+const net = require('node:net');
+
+module.exports = function relay(folder) {
+  const run = { args: process.argv.slice(2), cwd: process.cwd(), env: process.env };
+  fs.appendFileSync(`${folder}/runs.jsonl`, `${JSON.stringify(run)}\n`);
+  if (process.argv[2] === '--version') {
+    process.stdout.write(fs.readFileSync(`${folder}/version.txt`, 'utf8'));
+    process.exit(0);
+  }
+  const stubborn = fs.existsSync(`${folder}/stubborn`);
+  if (stubborn) process.on('SIGTERM', () => undefined);
+  const socket = net.connect(`${folder}/codex.sock`);
+  process.stdin.pipe(socket, { end: !stubborn });
+  socket.pipe(process.stdout);
+  socket.on('close', () => {
+    let code = 0;
+    try {
+      code = Number(fs.readFileSync(`${folder}/exit-code.txt`, 'utf8'));
+    } catch {
+      // No exit code written: the test closed it, which is a clean end.
+    }
+    process.exit(code);
+  });
+};

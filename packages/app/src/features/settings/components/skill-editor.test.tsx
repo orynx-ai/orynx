@@ -58,10 +58,10 @@ describe('SkillEditor', () => {
     expect(within(panel).getByRole('textbox', { name: 'When to use it' })).toHaveAccessibleDescription(
       'One sentence. You see it when picking a skill.',
     );
-    expect(within(panel).getByRole('textbox', { name: 'Instructions for Claude' })).toHaveValue(
+    expect(within(panel).getByRole('textbox', { name: 'Instructions for the agent' })).toHaveValue(
       makeOrynxSkill().instructions,
     );
-    expect(within(panel).getByRole('textbox', { name: 'Instructions for Claude' })).toHaveAccessibleDescription(
+    expect(within(panel).getByRole('textbox', { name: 'Instructions for the agent' })).toHaveAccessibleDescription(
       'Markdown. Steps, what good output looks like, what not to do.',
     );
     expect(within(panel).getByRole('status')).toHaveTextContent('Saved');
@@ -71,7 +71,7 @@ describe('SkillEditor', () => {
   it('AC-5, AC-27: says Unsaved changes after an edit, saves it, then says Saved', async () => {
     const { saves } = skillsServer();
     const { user } = await openBugBash();
-    const box = within(editor()).getByRole('textbox', { name: 'Instructions for Claude' });
+    const box = within(editor()).getByRole('textbox', { name: 'Instructions for the agent' });
 
     await user.clear(box);
     await user.type(box, 'Report only.');
@@ -114,7 +114,7 @@ describe('SkillEditor', () => {
 
     await user.clear(within(panel).getByRole('textbox', { name: 'Name' }));
     await user.clear(within(panel).getByRole('textbox', { name: 'When to use it' }));
-    await user.clear(within(panel).getByRole('textbox', { name: 'Instructions for Claude' }));
+    await user.clear(within(panel).getByRole('textbox', { name: 'Instructions for the agent' }));
     await user.click(within(panel).getByRole('button', { name: 'Save skill' }));
 
     expect(within(panel).getByRole('textbox', { name: 'Name' })).toHaveAccessibleDescription('Give the skill a name.');
@@ -122,7 +122,7 @@ describe('SkillEditor', () => {
     expect(within(panel).getByRole('textbox', { name: 'When to use it' })).toHaveAccessibleDescription(
       'Say when to use it.',
     );
-    expect(within(panel).getByRole('textbox', { name: 'Instructions for Claude' })).toHaveAccessibleDescription(
+    expect(within(panel).getByRole('textbox', { name: 'Instructions for the agent' })).toHaveAccessibleDescription(
       'Write the instructions.',
     );
 
@@ -141,7 +141,7 @@ describe('SkillEditor', () => {
       ),
     );
     const { user } = await openBugBash();
-    const box = within(editor()).getByRole('textbox', { name: 'Instructions for Claude' });
+    const box = within(editor()).getByRole('textbox', { name: 'Instructions for the agent' });
 
     await user.type(box, ' More.');
     await user.click(within(editor()).getByRole('button', { name: 'Save skill' }));
@@ -224,7 +224,7 @@ describe('SkillEditor', () => {
   it('AC-23: with unsaved changes, asks first; Cancel leaves the box as it was, Discard changes goes on', async () => {
     skillsServer();
     const { user, history } = await openBugBash();
-    await user.type(within(editor()).getByRole('textbox', { name: 'Instructions for Claude' }), ' More.');
+    await user.type(within(editor()).getByRole('textbox', { name: 'Instructions for the agent' }), ' More.');
 
     await user.click(within(editor()).getByRole('button', { name: 'Try in a new session' }));
     await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Cancel' }));

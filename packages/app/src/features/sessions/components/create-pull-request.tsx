@@ -21,6 +21,8 @@ import { cannotOpenWords, failureLine, pullRequestWords, whatHappensLine, whereL
 import { useCreatePullRequest, useDraftPullRequest } from '../queries.ts';
 import { pullRequestFormSchema, type PullRequestFormValues } from '../schemas.ts';
 import { usePullRequestDrafts, type KeptPullRequestDraft } from '../store.ts';
+import { forAgent } from '../../../words/agent-words.ts';
+import type { AgentId } from '@devhub/contracts';
 
 /** Which of Claude's runs a draft follows: a new run ends at another time, so the next opening drafts afresh. */
 function runOf(session: Session): string {
@@ -98,7 +100,7 @@ function PullRequestForm({
         </Field>
         {/* Under the fields, where "Claude is drafting…" was, so the fields never move (AC-23). */}
         <p className="m-0 text-small text-muted-foreground max-md:min-h-20">
-          {draft.byClaude ? null : <span>{pullRequestWords.notDrafted} </span>}
+          {draft.byClaude ? null : <span>{forAgent(pullRequestWords.notDrafted, session.agent)} </span>}
           <span>{whatHappensLine(draft)}</span>
         </p>
       </div>
@@ -136,7 +138,7 @@ function PullRequestForm({
 }
 
 /** While Claude drafts: the fields as skeletons in their final sizes, so nothing moves when the draft comes (AC-23). */
-function Drafting({ onCancel }: { onCancel: () => void }) {
+function Drafting({ onCancel, agent }: { onCancel: () => void; agent: AgentId }) {
   return (
     <div className="flex flex-col gap-4">
       <div aria-hidden className="flex flex-col gap-4">
@@ -154,7 +156,7 @@ function Drafting({ onCancel }: { onCancel: () => void }) {
       {/* Where the line about what Create will do comes, so the fields above never move. */}
       {/* As tall as that line on a narrow window, where it takes up to four lines, so the buttons stay put. */}
       <p role="status" className="m-0 text-small text-muted-foreground max-md:min-h-20">
-        {pullRequestWords.drafting}
+        {forAgent(pullRequestWords.drafting, agent)}
       </p>
       <div className="flex flex-wrap justify-end gap-2">
         <Button type="button" variant="secondary" onClick={onCancel}>
@@ -297,7 +299,7 @@ export function CreatePullRequest({
   } else if (drafting.isError) {
     body = <NoPullRequest line={pullRequestWords.draftFailed} settings={false} retry={askForDraft} onCancel={cancel} />;
   } else {
-    body = <Drafting onCancel={cancel} />;
+    body = <Drafting onCancel={cancel} agent={session.agent} />;
   }
 
   if (!show && !open) return null;

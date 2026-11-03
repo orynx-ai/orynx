@@ -96,7 +96,7 @@ describe('agent models endpoint', () => {
 
   it('keeps the list under its own key for 10 minutes', () => {
     const options = agentModelsQueryOptions(api);
-    expect(options.queryKey).toEqual(queryKeys.agentModels);
+    expect(options.queryKey).toEqual([...queryKeys.agentModels, 'claude']);
     expect(options.staleTime).toBe(10 * 60_000);
   });
 });

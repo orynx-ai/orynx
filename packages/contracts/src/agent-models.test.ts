@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { AgentModelIdSchema, AgentModelsSchema, apiRoutes, StartSessionRequestSchema } from './index.ts';
+import {
+  AgentModelIdSchema,
+  AgentModelsQuerySchema,
+  AgentModelsSchema,
+  apiRoutes,
+  StartSessionRequestSchema,
+} from './index.ts';
 
 describe('AgentModelsSchema', () => {
   it('carries the models Claude Code lists, each with its effort levels', () => {
@@ -37,5 +43,13 @@ describe('StartSessionRequestSchema', () => {
       context: [],
     });
     expect(StartSessionRequestSchema.safeParse({ ...start, effort: 'huge' }).success).toBe(false);
+  });
+});
+
+describe('models by agent (spec 052)', () => {
+  it("AC-4: asks for one agent's models, Claude's when the query names none", () => {
+    expect(AgentModelsQuerySchema.parse({})).toEqual({ agent: 'claude' });
+    expect(AgentModelsQuerySchema.parse({ agent: 'codex' })).toEqual({ agent: 'codex' });
+    expect(AgentModelsQuerySchema.safeParse({ agent: 'gemini' }).success).toBe(false);
   });
 });

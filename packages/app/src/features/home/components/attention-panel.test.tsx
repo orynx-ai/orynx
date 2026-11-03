@@ -216,7 +216,7 @@ describe('AttentionPanel', () => {
       const posted: unknown[] = [];
       server.use(
         http.get(apiUrl(apiRoutes.status), () =>
-          HttpResponse.json(makeStatus({ agent: { id: 'claude', connected: true } })),
+          HttpResponse.json(makeStatus({ agents: { claude: { connected: true } } })),
         ),
         http.get(apiUrl(apiRoutes.agentModels), () =>
           HttpResponse.json({
@@ -270,6 +270,29 @@ describe('AttentionPanel', () => {
       expect(posted[1]).toEqual({ ...(posted[0] as object), another: true });
     });
 
+    it('052 AC-24: with a Codex model picked, says Review with Codex and starts the review on Codex', async () => {
+      const posted: unknown[] = [];
+      server.use(
+        http.get(apiUrl(apiRoutes.status), () =>
+          HttpResponse.json(makeStatus({ agents: { claude: { connected: true }, codex: { connected: true } } })),
+        ),
+        http.get(apiUrl(apiRoutes.agentModels), () => HttpResponse.json({ state: 'unavailable' })),
+        http.post(apiUrl(apiRoutes.sessions), async ({ request }) => {
+          posted.push(await request.json());
+          return HttpResponse.json({ result: 'started', sessionId: '0123456789abcdef' });
+        }),
+      );
+      useComposerStore.setState({ agent: 'codex', model: null, effort: null });
+      const { user, history } = await openHome();
+
+      const codex = await rowOf(review.title).findByRole('button', { name: 'Review web-app #2841 with Codex' });
+      await user.click(codex);
+      await waitFor(() => {
+        expect(history.location.pathname).toBe('/sessions/0123456789abcdef');
+      });
+      expect(posted).toEqual([expect.objectContaining({ agent: 'codex', review: true })]);
+    });
+
     it('AC-24: is reached by Tab from its row’s title, with its tooltip, and Enter presses it', async () => {
       const posted = starts(() => ({ result: 'started', sessionId: '0123456789abcdef' }));
       const { user } = await openHome();
@@ -298,7 +321,7 @@ describe('AttentionPanel', () => {
       const posted: unknown[] = [];
       server.use(
         http.get(apiUrl(apiRoutes.status), () =>
-          HttpResponse.json(makeStatus({ agent: { id: 'claude', connected: true } })),
+          HttpResponse.json(makeStatus({ agents: { claude: { connected: true } } })),
         ),
         http.get(apiUrl(apiRoutes.agentModels), () =>
           HttpResponse.json({

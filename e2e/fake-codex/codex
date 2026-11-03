@@ -1,0 +1,10 @@
+#!/bin/sh
+# Stands in for Codex in the e2e run (spec 052): playwright.config.ts names it with DEVHUB_CODEX on the Codex hub,
+# so the run never reads your real Codex login or reaches OpenAI. `codex app-server` goes to app-server.ts, which
+# answers the protocol as Codex 0.166 does, as far as Orynx needs, and plays one scripted run.
+here="$(dirname "$0")"
+if [ "$1" = "--version" ]; then
+  echo "codex-cli 0.166.0"
+  exit 0
+fi
+exec node --disable-warning=ExperimentalWarning "$here/app-server.ts" "$@"

@@ -1,4 +1,4 @@
-import type { ChangedFile, FileDiff } from '@devhub/contracts';
+import type { AgentId, ChangedFile, FileDiff } from '@devhub/contracts';
 import { mostPullRequestBodyCharacters, mostPullRequestTitleCharacters, mostReplyCharacters } from '@devhub/contracts';
 import { z } from 'zod';
 
@@ -224,9 +224,12 @@ export function readCommitMessage(answer: string): string | null {
   return line === undefined ? null : line.slice(0, mostPullRequestTitleCharacters);
 }
 
-/** A commit Orynx makes: your words, then the Co-Authored-By line (Q5). */
-export function commitMessage(subject: string): string {
-  return `${subject}\n\n${coAuthorLine}`;
+/**
+ * A commit Orynx makes: your words, then the Co-Authored-By line (Q5). A Codex session's carries no co-author line
+ * until the user gives one (spec 052, Q8).
+ */
+export function commitMessage(subject: string, agent: AgentId = 'claude'): string {
+  return agent === 'codex' ? subject : `${subject}\n\n${coAuthorLine}`;
 }
 
 /** Claude's instructions for replies to a pull request's review threads (spec 049). */

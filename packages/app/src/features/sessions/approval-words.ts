@@ -1,4 +1,5 @@
-import type { AlwaysAskReason, JiraChangeAsk, SessionApproval } from '@devhub/contracts';
+import type { AgentId, AlwaysAskReason, JiraChangeAsk, SessionApproval } from '@devhub/contracts';
+import { forAgent } from '../../words/agent-words.ts';
 
 /**
  * The words of the approval callout and the pill (spec 012, Q8a, Q8b, Q8d, Q8e, Q9). The server sends what
@@ -22,7 +23,12 @@ export function jiraMoveLine(change: Extract<JiraChangeAsk, { action: 'transitio
   return `${change.from ?? 'Its status'} → ${change.to}`;
 }
 
-export function approvalTitle(approval: SessionApproval): string {
+/** A waiting call's title, naming the agent the session runs on (spec 052, Q4). */
+export function approvalTitle(approval: SessionApproval, agent: AgentId = 'claude'): string {
+  return forAgent(claudeApprovalTitle(approval), agent);
+}
+
+function claudeApprovalTitle(approval: SessionApproval): string {
   if (approval.kind === 'command') return 'Claude wants to run a command';
   if (approval.kind === 'jira') return jiraChangeTitle(approval.key, approval.change);
   if (approval.kind === 'ticket') return 'Claude wants to delete a ticket';

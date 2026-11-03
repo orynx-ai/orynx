@@ -32,6 +32,8 @@ import {
 } from '../pull-request-words.ts';
 import { useDraftReplies, usePostReplies } from '../queries.ts';
 import { repliesFormSchema, type RepliesFormValues } from '../schemas.ts';
+import { forAgent } from '../../../words/agent-words.ts';
+import type { AgentId } from '@devhub/contracts';
 
 type Failure = Extract<ReplyAnswer, { result: 'posted' }>['failed'][number];
 
@@ -46,9 +48,11 @@ function RepliesForm({
   onPost,
   onPosted,
   onCancel,
+  agent,
 }: {
   draft: ReplyDraft;
   repository: string;
+  agent: AgentId;
   onPost: (request: ReplyRequest) => Promise<ReplyAnswer>;
   onPosted: () => void;
   onCancel: () => void;
@@ -104,7 +108,9 @@ function RepliesForm({
 
   return (
     <form noValidate aria-label={replyWords.button} className="flex min-h-0 flex-col gap-4" onSubmit={submit}>
-      {draft.byClaude ? null : <p className="m-0 text-small text-muted-foreground">{replyWords.notDrafted}</p>}
+      {draft.byClaude ? null : (
+        <p className="m-0 text-small text-muted-foreground">{forAgent(replyWords.notDrafted, agent)}</p>
+      )}
       <div className="-mx-6 flex min-h-0 flex-col gap-4 overflow-y-auto px-6">
         {fields.map((field, index) => {
           const thread = shown.get(field.threadId);
@@ -253,6 +259,7 @@ export function ReplyToReviewers({
   } else if (drafted?.result === 'draft') {
     body = (
       <RepliesForm
+        agent={session.agent}
         draft={drafted}
         repository={repository}
         onPost={(request) => posting.mutateAsync(request)}
@@ -266,7 +273,7 @@ export function ReplyToReviewers({
     body = (
       <div className="flex flex-col gap-4">
         <p role="status" className="m-0 text-small text-muted-foreground">
-          {replyWords.drafting}
+          {forAgent(replyWords.drafting, session.agent)}
         </p>
         {[0, 1].map((row) => (
           <div key={row} aria-hidden className="flex flex-col gap-2">

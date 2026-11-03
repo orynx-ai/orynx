@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { parseEnv } from 'node:util';
 import { z } from 'zod';
 import type { IntegrationId } from '@devhub/contracts';
-import { agentEnvironment, gitEnvironment, terminalEnvironment, type EnvTokens } from '@devhub/core';
+import { agentEnvironment, codexEnvironment, gitEnvironment, terminalEnvironment, type EnvTokens } from '@devhub/core';
 
 /** The only place that reads process.env (CLAUDE.md rule 9). Every key is in .env.example. */
 const EnvSchema = z.object({
@@ -32,6 +32,7 @@ const EnvSchema = z.object({
 const ShellSchema = z.object({
   PATH: z.string().default(''),
   DEVHUB_CLAUDE_CODE: z.string().refine(isAbsolute, 'must be the full path of the program').optional(),
+  DEVHUB_CODEX: z.string().refine(isAbsolute, 'must be the full path of the program').optional(),
 });
 
 /** Which setting holds each tool's token when the `.env` fallback is on (spec 002, Q1). */
@@ -66,6 +67,11 @@ export interface ServerConfig {
    */
   claudeCode: string | null;
   /**
+   * DEVHUB_CODEX from the shell, never from `.env`: the Codex to run instead of `codex` on the PATH (spec 052). Null
+   * looks it up on the PATH.
+   */
+  codex: string | null;
+  /**
    * Whether Orynx checks that Claude Code's sandbox can run before giving sessions commands (spec 012,
    * Q2b): `required`, or `assume` for a fake Claude Code, as the e2e run uses. A real Claude Code still
    * refuses to run commands without a sandbox.
@@ -79,6 +85,8 @@ export interface ServerConfig {
   releasesUrl: string | null;
   /** The part of the shell's environment Claude Code may see (spec 010, AC-10). Nothing from `.env`. */
   agentEnvironment: Record<string, string>;
+  /** The part of the shell's environment Codex may see (spec 052, AC-25): its own login, none of Claude's. */
+  codexEnvironment: Record<string, string>;
   /** The same for the git that makes a session's worktree, with your SSH agent and no prompts (spec 011, Q8d). */
   gitEnvironment: Record<string, string>;
   /** What your shells in a session's Terminal get: your whole environment, less Orynx's settings (spec 036). */
@@ -158,11 +166,13 @@ export function loadConfig({
     tokens: { fromEnv, env: tokens, ignored },
     ghSearchPath: shell.data.PATH,
     claudeCode: shell.data.DEVHUB_CLAUDE_CODE ?? null,
+    codex: shell.data.DEVHUB_CODEX ?? null,
     sandbox: settings.DEVHUB_SANDBOX,
     lan: settings.DEVHUB_LAN === 'true',
     service: settings.DEVHUB_SERVICE ?? null,
     releasesUrl: settings.DEVHUB_RELEASES_URL ?? null,
     agentEnvironment: agentEnvironment(env),
+    codexEnvironment: codexEnvironment(env),
     gitEnvironment: gitEnvironment(env),
     terminalEnvironment: terminalEnvironment(env),
   };

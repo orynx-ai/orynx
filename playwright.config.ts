@@ -3,11 +3,13 @@ import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
 import { fakeClaude, fakeClaudeDirFor } from './e2e/fake-claude/config.ts';
+import { fakeCodex, noCodex } from './e2e/fake-codex/config.ts';
 import { fakeReleasesPort, fakeReleasesUrl } from './e2e/fake-tools/releases.ts';
 import { setUpHome } from './e2e/set-up.ts';
 import {
   approvalsHubPort,
   changesHubPort,
+  codexHubPort,
   composerHubPort,
   fakeToolsHubPort,
   pullRequestsHubPort,
@@ -31,6 +33,7 @@ const chatHome = setUpHome(mkdtempSync(join(tmpdir(), 'devhub-e2e-chat-')));
 const terminalHome = setUpHome(mkdtempSync(join(tmpdir(), 'devhub-e2e-terminal-')));
 const orynxTicketsHome = setUpHome(mkdtempSync(join(tmpdir(), 'devhub-e2e-orynx-tickets-')));
 const pullRequestsHome = setUpHome(mkdtempSync(join(tmpdir(), 'devhub-e2e-pull-requests-')));
+const codexHome = setUpHome(mkdtempSync(join(tmpdir(), 'devhub-e2e-codex-')));
 // The pull requests hub's git commits with a name of its own, and never reads your ~/.gitconfig: your
 // name, your signing (which could ask for a passphrase) or your aliases (spec 014).
 const pullRequestsGitHome = mkdtempSync(join(tmpdir(), 'devhub-e2e-pull-requests-git-'));
@@ -77,6 +80,8 @@ const hubEnv = {
   PATH: `${fakeGh}${delimiter}${process.env['PATH'] ?? ''}`,
   // Always signed out, unless the hub gives it an answer folder (CLAUDE_CONFIG_DIR).
   DEVHUB_CLAUDE_CODE: fakeClaude,
+  // No Codex, whatever is on your PATH: only the Codex hub has one (spec 052).
+  DEVHUB_CODEX: noCodex,
   // The fake Claude Code has no sandbox; Orynx would otherwise give it no commands (spec 012).
   DEVHUB_SANDBOX: 'assume',
   // Every hub checks for updates with the fake releases, never api.github.com (spec 045, AC-24).
@@ -168,6 +173,16 @@ export default defineConfig({
       reuseExistingServer: false,
       timeout: 60_000,
       env: { DEVHUB_PORT: String(orynxTicketsHubPort), DEVHUB_HOME: orynxTicketsHome, ...hubEnv },
+    },
+    {
+      // Codex beside Claude (spec 052): the only hub whose Codex is there, a fake signed in with ChatGPT that plays
+      // one scripted run (e2e/fake-codex/app-server.ts). Claude stays signed out here.
+      command: 'node apps/server/dist/main.mjs --serve-web',
+      url: `http://127.0.0.1:${String(codexHubPort)}/`,
+      reuseExistingServer: false,
+      timeout: 60_000,
+      // The fake Codex has no sandbox either; hubEnv's DEVHUB_SANDBOX gives its sessions commands (spec 012).
+      env: { DEVHUB_PORT: String(codexHubPort), DEVHUB_HOME: codexHome, ...hubEnv, DEVHUB_CODEX: fakeCodex },
     },
   ],
 });

@@ -144,6 +144,7 @@ export function listedSession(session: Session): ListedSession {
     pinnedAt,
     discardedAt,
     mode,
+    agent,
     workOn,
     pullRequest: pull,
     review,
@@ -160,6 +161,7 @@ export function listedSession(session: Session): ListedSession {
     pinnedAt,
     discardedAt,
     mode,
+    agent,
     pullRequest,
     reviewing,
   };
@@ -243,7 +245,7 @@ export async function listSessions(
   const sorted = [...(await store.list())]
     .filter((session) => !recent || session.discardedAt == null || Date.parse(session.discardedAt) >= cutoff)
     .filter((session) => pinned === undefined || (session.pinnedAt != null) === pinned)
-    .map(({ id, title, state, ready, source, updatedAt, pinnedAt, mode }): SessionSummary => ({
+    .map(({ id, title, state, ready, source, updatedAt, pinnedAt, mode, agent }): SessionSummary => ({
       id,
       title,
       state,
@@ -252,6 +254,7 @@ export async function listSessions(
       updatedAt,
       pinnedAt,
       mode,
+      agent,
     }))
     .sort(pinned === true ? pinnedFirst : newerFirst);
   const start = cursor === undefined ? 0 : afterCursor(sorted, cursor);

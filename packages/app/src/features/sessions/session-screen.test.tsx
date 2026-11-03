@@ -2,7 +2,7 @@ import { screen, within } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiRoutes } from '@devhub/contracts';
-import { makeSession, makeSessionChanges, makeSessionTicket } from '@devhub/contracts/testing';
+import { makeSession, makeSessionApproval, makeSessionChanges, makeSessionTicket } from '@devhub/contracts/testing';
 import { apiUrl, server, sessionHandler } from '../../test/msw.ts';
 import { renderApp } from '../../test/render.tsx';
 
@@ -206,5 +206,54 @@ describe('SessionScreen', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Add bulk archive to the content list' }),
     ).toBeVisible();
+  });
+});
+
+describe('a session on Codex (spec 052, Q4)', () => {
+  it('AC-7: its steps, its waiting call and its follow-up box name Codex', async () => {
+    server.use(
+      sessionHandler({
+        ...working,
+        agent: 'codex',
+        state: 'needs_you',
+        activities: [
+          {
+            id: 'step-1',
+            state: 'done',
+            kind: 'brief',
+            key: 'PROJ-1423',
+            tickets: [],
+            message: false,
+            pullRequests: [],
+            files: [],
+            skills: [],
+          },
+        ],
+        approvals: [makeSessionApproval({ id: 'approval-1' })],
+      }),
+    );
+    await renderApp({ route });
+
+    expect(await screen.findByText('Codex wants to run a command')).toBeVisible();
+    expect(screen.getByText(/^Sent Codex/)).toBeVisible();
+    expect(screen.getByRole('textbox', { name: 'Message Codex' })).toBeVisible();
+    expect(screen.queryByText(/Claude/)).toBeNull();
+  });
+
+  it("AC-21: a login that didn't work says how to sign in to Codex", async () => {
+    server.use(
+      sessionHandler({
+        ...working,
+        agent: 'codex',
+        state: 'stopped',
+        problem: { kind: 'login', stage: 'working' },
+      }),
+    );
+    await renderApp({ route });
+
+    expect(await screen.findByText('Codex stopped with an error')).toBeVisible();
+    expect(screen.getByText(/Codex's login didn't work/)).toHaveTextContent(
+      "Codex's login didn't work. Run codex login in a terminal, then start again.",
+    );
   });
 });

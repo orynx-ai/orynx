@@ -9,12 +9,23 @@ import { usePlatform } from '../../../platform.tsx';
 import { useChangeReviewComment } from '../queries.ts';
 import { reviewWords } from '../review-words.ts';
 import { reviewCommentFormSchema, type ReviewCommentFormValues } from '../schemas.ts';
+import { forAgent } from '../../../words/agent-words.ts';
+import type { AgentId } from '@devhub/contracts';
 
 /**
  * One of Claude's review comments under its line (spec 050, `session-review.html`'s reviewer's note): Keep and Edit
  * until it's posted, then Posted. Unticked, it stays here, fainter, and won't be posted.
  */
-export function ReviewNote({ sessionId, comment }: { sessionId: string; comment: ReviewComment }) {
+export function ReviewNote({
+  sessionId,
+  comment,
+  agent = 'claude',
+}: {
+  sessionId: string;
+  comment: ReviewComment;
+  /** The agent that left the comment (spec 052). */
+  agent?: AgentId;
+}) {
   const change = useChangeReviewComment(sessionId);
   const platform = usePlatform();
   const [editing, setEditing] = useState(false);
@@ -58,9 +69,9 @@ export function ReviewNote({ sessionId, comment }: { sessionId: string; comment:
 
   return (
     <DiffNote
-      aria-label={reviewWords.note(comment.path, comment.line)}
+      aria-label={forAgent(reviewWords.note(comment.path, comment.line), agent)}
       mark={<Icon icon={ClaudeIcon} />}
-      author={reviewWords.author}
+      author={forAgent(reviewWords.author, agent)}
       {...(posted ? { meta: reviewWords.posted } : {})}
       muted={!posted && !comment.keep}
       {...(footer === undefined ? {} : { footer })}

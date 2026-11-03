@@ -82,6 +82,12 @@ function noTicket(key: string): TicketToolAnswer {
 }
 
 /** The tools, each acting as `actor`: you, an agent in a session, or an agent outside Orynx. */
+/** A ticket's title, read with the session's own get_ticket tool, for the ask before a delete; null when it's gone. */
+export async function ticketTitle(tools: readonly TicketTool[], key: string): Promise<string | null> {
+  const answer = await tools.find((ticketTool) => ticketTool.name === 'get_ticket')?.run({ key });
+  return answer === undefined || answer.error === true || answer.done.action === 'listed' ? null : answer.done.title;
+}
+
 export function ticketTools(tickets: OrynxTicketService, actor: OrynxTicketCreator): TicketTool[] {
   return [
     {

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AgentChoiceSchema } from './agent-models.ts';
+import { AgentChoiceSchema, AgentIdSchema } from './agent-models.ts';
 import { AlwaysAskReasonSchema } from './commands.ts';
 import { FilePathSchema } from './files.ts';
 import { GitHubLinkSchema, GitHubRepositorySchema } from './github.ts';
@@ -123,6 +123,8 @@ export const SessionSummarySchema = z.object({
   pinnedAt: z.iso.datetime().nullable().default(null),
   /** Ask or Build (spec 026); a session saved before it was a Build. In the summary for Sessions' Kind filter (spec 039). */
   mode: SessionModeSchema.default('build'),
+  /** The agent it runs on, for life (spec 052); a session saved before spec 052 ran on Claude. */
+  agent: AgentIdSchema.default('claude'),
 });
 export type SessionSummary = z.infer<typeof SessionSummarySchema>;
 
@@ -725,6 +727,8 @@ export function stepsOf(session: Pick<Session, 'steps' | 'workOn'>): SessionStep
 export const TicketStartSchema = z.object({
   ticketKey: JiraIssueKeySchema,
   repositoryId: RepositoryIdSchema.optional(),
+  // The agent, model and effort the composer picked (spec 052); left out, Claude and its own default.
+  ...AgentChoiceSchema.shape,
 });
 export type TicketStart = z.infer<typeof TicketStartSchema>;
 

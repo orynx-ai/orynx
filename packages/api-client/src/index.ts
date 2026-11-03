@@ -12,6 +12,7 @@ export {
   agentsAccessQueryOptions,
   orynxTicketQueryOptions,
   claudeLoginQueryOptions,
+  codexLoginQueryOptions,
   githubConnectionQueryOptions,
   inboxQueryOptions,
   jiraConnectionQueryOptions,

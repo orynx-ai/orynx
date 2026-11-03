@@ -1,6 +1,7 @@
 import { useIsMutating, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import {
   claudeLoginQueryOptions,
+  codexLoginQueryOptions,
   discordConnectionQueryOptions,
   githubConnectionQueryOptions,
   slackConnectionQueryOptions,
@@ -20,6 +21,7 @@ import {
 import { InboxRuleIdSchema, permissionsFor } from '@devhub/contracts';
 import type {
   ClaudeLogin,
+  CodexLogin,
   ConnectionCheck,
   DiscordConnection,
   DiscordConnectionRequest,
@@ -107,6 +109,26 @@ export function useCheckClaudeLogin() {
     onSuccess: async (login) => {
       // The answer is the new login, so the card shows it at once; the footer's status line refetches.
       queryClient.setQueryData(queryKeys.claudeLogin, login);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.status });
+    },
+  });
+}
+
+/** Codex's login on this computer, for its card (spec 052). */
+export function useCodexLogin() {
+  const api = useApi();
+  return useQuery(codexLoginQueryOptions(api));
+}
+
+/** Check again: the server asks Codex now, and the card shows what it found. */
+export function useCheckCodexLogin() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation<CodexLogin, ApiRequestError>({
+    mutationKey: queryKeys.codexLogin,
+    mutationFn: () => api.checkCodexLogin(),
+    onSuccess: async (login) => {
+      queryClient.setQueryData(queryKeys.codexLogin, login);
       await queryClient.invalidateQueries({ queryKey: queryKeys.status });
     },
   });

@@ -3,7 +3,12 @@ import { makeQuestionApproval, makeSession, makeSessionApproval } from '@devhub/
 import { approvalNotificationId, sessionNotifications } from './session-notifications.ts';
 
 const working = makeSession({ id: '00000000000000aa', title: 'Add bulk archive', state: 'working' });
-const session = { id: '00000000000000aa', title: 'Add bulk archive', source: { kind: 'jira', key: 'PROJ-1423' } };
+const session = {
+  id: '00000000000000aa',
+  title: 'Add bulk archive',
+  source: { kind: 'jira', key: 'PROJ-1423' },
+  agent: 'claude',
+};
 
 describe('the notifications a session change raises (spec 029)', () => {
   it('AC-19: Claude waiting to run a command raises one, with the command', () => {

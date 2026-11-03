@@ -1,5 +1,9 @@
 import { z } from 'zod';
 
+/** The coding agents a session can run on (spec 052): Claude, the first, and Codex. */
+export const AgentIdSchema = z.enum(['claude', 'codex']);
+export type AgentId = z.infer<typeof AgentIdSchema>;
+
 /** How hard Claude works on its answer, as Claude Code names the levels. */
 export const EffortLevelSchema = z.enum(['low', 'medium', 'high', 'xhigh', 'max']);
 export type EffortLevel = z.infer<typeof EffortLevelSchema>;
@@ -26,8 +30,13 @@ export const AgentModelsSchema = z.discriminatedUnion('state', [
 ]);
 export type AgentModels = z.infer<typeof AgentModelsSchema>;
 
-/** What the composer picked; both left out means Claude Code's own default. */
+/** GET /api/agent/models?agent= (spec 052): one agent's models, Claude's when the query names none. */
+export const AgentModelsQuerySchema = z.object({ agent: AgentIdSchema.default('claude') });
+
+/** What the composer picked; left out, Claude, and its own default model and effort. */
 export const AgentChoiceSchema = z.object({
+  /** The agent the session runs on (spec 052). A follow-up goes to the session's own agent whatever this says. */
+  agent: AgentIdSchema.optional(),
   model: AgentModelIdSchema.optional(),
   effort: EffortLevelSchema.optional(),
 });

@@ -29,7 +29,7 @@ describe('DiscardSkillChanges', () => {
     skills(makeOrynxSkillList({ skills: [makeOrynxSkill(), howWeReview] }));
     const app = await renderApp({ route: '/settings/skills' });
     await screen.findByRole('heading', { level: 2, name: 'Bug bash' });
-    await app.user.type(screen.getByRole('textbox', { name: 'Instructions for Claude' }), ' More.');
+    await app.user.type(screen.getByRole('textbox', { name: 'Instructions for the agent' }), ' More.');
     return app;
   }
 
@@ -47,7 +47,7 @@ describe('DiscardSkillChanges', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(history.location.search).toBe('');
     expect(screen.getByRole('heading', { level: 2, name: 'Bug bash' })).toBeVisible();
-    expect(screen.getByRole('textbox', { name: 'Instructions for Claude' })).toHaveValue(
+    expect(screen.getByRole('textbox', { name: 'Instructions for the agent' })).toHaveValue(
       `${makeOrynxSkill().instructions} More.`,
     );
   });
