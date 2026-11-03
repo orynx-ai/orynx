@@ -138,6 +138,9 @@ export const server = setupServer(
   // Claude Code isn't signed in, as the default status says.
   http.get(apiUrl(apiRoutes.claudeLogin), () => HttpResponse.json({ state: 'signed_out' })),
   http.post(apiUrl(apiRoutes.claudeLoginCheck), () => HttpResponse.json({ state: 'signed_out' })),
+  // No Codex on this computer (spec 052).
+  http.get(apiUrl(apiRoutes.codexLogin), () => HttpResponse.json({ state: 'not_installed' })),
+  http.post(apiUrl(apiRoutes.codexLoginCheck), () => HttpResponse.json({ state: 'not_installed' })),
   // Signed out, Claude offers no models.
   http.get(apiUrl(apiRoutes.agentModels), () => HttpResponse.json({ state: 'unavailable' })),
   // Agents outside Orynx may not use its tickets until you turn it on (spec 037).

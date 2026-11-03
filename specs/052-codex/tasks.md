@@ -47,9 +47,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 15: api-client: Codex login and check, and models by agent, with query keys beneath the one status.changed refreshes (AC-1, AC-4)
       Check: pnpm test packages/api-client/src/codex.test.ts packages/api-client/src/claude.test.ts
       Files: packages/api-client/src/endpoints/codex.ts, codex.test.ts, endpoints/claude.ts, client.ts, queries.ts, index.ts, claude.test.ts
-- [ ] Task 16: Settings › Coding agent: the Codex card in place of "More agents", with its four states, Check again, no shift while checking, and keyboard use (AC-1, AC-2, AC-3, AC-26, AC-27)
+- [x] Task 16: Settings › Coding agent: the Codex card in place of "More agents", with its four states, Check again, no shift while checking, and keyboard use (AC-1, AC-2, AC-3, AC-26, AC-27)
       Check: pnpm test packages/app/src/features/settings/components/codex-card.test.tsx packages/app/src/features/settings/components/coding-agent-panel.test.tsx
-      Files: packages/app/src/features/settings/components/codex-card.tsx, codex-card.test.tsx, coding-agent-panel.tsx, packages/app/src/features/settings/queries.ts
+      Files: packages/app/src/features/settings/components/codex-card.tsx, codex-card.test.tsx, agent-login-card.tsx (the card both agents share), agent-login-card.test.tsx, claude-card.tsx, coding-agent-panel.tsx, packages/app/src/features/settings/queries.ts, packages/app/src/live-updates.tsx, packages/app/src/test/msw.ts
 - [ ] Task 17: The picker: a group per signed-in agent, the agent kept with the model and effort, falling back when an agent signs out, and the agent sent on start and follow-up (AC-4, AC-5, AC-6, AC-26)
       Check: pnpm test packages/app/src/features/home/components/agent-picker.test.tsx packages/app/src/features/home/store.test.ts
       Files: packages/app/src/features/home/components/agent-picker.tsx, agent-picker.test.tsx, store.ts, queries.ts, composer-words.ts, home-composer.tsx, packages/app/src/features/sessions/components/follow-up-box.tsx

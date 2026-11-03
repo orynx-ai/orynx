@@ -49,16 +49,14 @@ async function openRows() {
 }
 
 describe('CodingAgentPanel', () => {
-  it('AC-14, AC-15: shows the agent, the line about more agents, then the rows, in that order', async () => {
+  it('AC-14, AC-15, 052 AC-1: shows Claude, then Codex in the place of more agents, then the rows, in that order', async () => {
     await renderApp({ route: '/settings/coding-agent' });
 
     const claude = await screen.findByRole('group', { name: 'Claude' });
-    const more = screen.getByText(
-      'More agents are coming later. Each one plugs in through the same small adapter, so these settings will apply to them too.',
-    );
+    const codex = screen.getByRole('group', { name: 'Codex' });
     const rows = screen.getByRole('region', { name: heading });
-    expect(claude.compareDocumentPosition(more) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(more.compareDocumentPosition(rows) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(claude.compareDocumentPosition(codex) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(codex.compareDocumentPosition(rows) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('spec 026: one row for each kind of call in three groups, each with its line, starting as edit freely and ask before commands', async () => {
