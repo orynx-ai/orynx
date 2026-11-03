@@ -68,11 +68,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # The app has the most tests, so it runs in two shards (spec 049).
+          # The app and core have the most tests, so each runs in two shards (spec 049).
           - { name: app-1, dir: packages/app, shard: 1/2 }
           - { name: app-2, dir: packages/app, shard: 2/2 }
+          - { name: core-1, dir: packages/core, shard: 1/2 }
+          - { name: core-2, dir: packages/core, shard: 2/2 }
           - { name: ui, dir: packages/ui }
-          - { name: core, dir: packages/core }
           - { name: contracts, dir: packages/contracts }
           - { name: api-client, dir: packages/api-client }
           - { name: server, dir: apps/server }
@@ -121,7 +122,7 @@ jobs:
           missing=()
           for config in packages/*/vitest.config.ts apps/*/vitest.config.ts; do
             name=$(basename "$(dirname "$config")")
-            if [ "$name" = app ]; then expected=(app-1 app-2); else expected=("$name"); fi
+            case "$name" in app | core) expected=("$name-1" "$name-2") ;; *) expected=("$name") ;; esac
             for report in "${expected[@]}"; do
               [ -f ".vitest/blob/blob-$report.json" ] || missing+=("$report")
             done
