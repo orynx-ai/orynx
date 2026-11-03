@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <meta
+      name="description"
+      content="Click through Orynx on made-up data: your tickets, pull requests and threads, and a coding agent you approve."
+    />
+    <title>Orynx demo</title>
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#fcfcfb" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#171614" />
+    <script>
+      // Apply the saved theme before first paint so there is no light/dark flash.
+      try {
+        var saved = JSON.parse(localStorage.getItem('devhub.theme') || '{}');
+        var theme = saved && saved.state && saved.state.theme;
+        if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

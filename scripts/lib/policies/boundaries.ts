@@ -2,7 +2,8 @@ import { builtinModules } from 'node:module';
 import { makeLineLookup, type Finding } from '../gate.ts';
 import { scanSource } from '../source-scan.ts';
 
-export type PackageKey = 'contracts' | 'ui' | 'api-client' | 'app' | 'core' | 'web' | 'server' | 'desktop' | 'landing';
+export type PackageKey =
+  'contracts' | 'ui' | 'api-client' | 'app' | 'core' | 'web' | 'server' | 'desktop' | 'landing' | 'demo';
 
 interface Layer {
   dir: string;
@@ -29,6 +30,8 @@ export const LAYERS: Readonly<Record<PackageKey, Layer>> = {
   desktop: { dir: 'apps/desktop', internal: [], browser: false },
   // The public landing page stands alone: static HTML, no app code.
   landing: { dir: 'apps/landing', internal: [], browser: true },
+  // The public demo: the app on made-up data, its hub faked in the page (spec 055).
+  demo: { dir: 'apps/demo', internal: ['app', 'ui', 'api-client', 'contracts'], browser: true },
 };
 
 const ARCH = 'docs/architecture.md';
