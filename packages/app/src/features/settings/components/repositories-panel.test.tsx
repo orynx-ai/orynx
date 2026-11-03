@@ -67,8 +67,8 @@ describe('RepositoriesPanel', () => {
     await renderApp({ route: '/settings/repositories' });
 
     expect(await screen.findByText('No folders yet')).toBeVisible();
-    expect(screen.getByText('Add a folder so Claude can work on its code.')).toBeVisible();
-    expect(screen.getByText('Folders on this computer that Claude can work in')).toBeVisible();
+    expect(screen.getByText('Add a folder so the agent can work on its code.')).toBeVisible();
+    expect(screen.getByText('Folders on this computer that the agent can work in')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Add local folder' })).toBeEnabled();
   });
 
@@ -245,7 +245,7 @@ describe('RepositoriesPanel', () => {
     );
     await renderApp({ route: '/settings/repositories' });
 
-    expect(await screen.findByText('Folders on this computer that Claude can work in')).toBeVisible();
+    expect(await screen.findByText('Folders on this computer that the agent can work in')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Add local folder' })).toBeVisible();
     expect(screen.queryByText('No folders yet')).not.toBeInTheDocument();
     expect(screen.queryByRole('list', { name: 'Folders' })).not.toBeInTheDocument();

@@ -4,6 +4,7 @@ import { dayMonth, minute } from '../../words/calendar.ts';
 import { sizeText } from '../../words/size.ts';
 import { waitText } from '../../words/tool-line.ts';
 import { sourceLabel } from '../sessions/source-label.ts';
+import { forAgent } from '../../words/agent-words.ts';
 
 /** The words the panel, a pop-up and a desktop notification use (spec 029, Q6). */
 export interface NotificationWords {
@@ -46,15 +47,16 @@ export function notificationWords(what: NotificationWhat): NotificationWords {
   switch (what.kind) {
     case 'approval': {
       const session = joined(sourceLabel(what.session.source), what.session.title);
-      return { title: askedFor[what.about], detail: joined(session, what.command), desktop: session };
+      const title = forAgent(askedFor[what.about], what.session.agent ?? 'claude');
+      return { title, detail: joined(session, what.command), desktop: session };
     }
     case 'session_finished':
     case 'session_stopped':
     case 'session_failed':
     case 'session_limit': {
       const session = joined(sourceLabel(what.session.source), what.session.title);
-      const title = what.kind === 'session_finished' ? finished[what.ready] : ended[what.kind];
-      return { title, detail: session, desktop: session };
+      const said = what.kind === 'session_finished' ? finished[what.ready] : ended[what.kind];
+      return { title: forAgent(said, what.session.agent ?? 'claude'), detail: session, desktop: session };
     }
     case 'review_requested':
     case 'checks_failed': {

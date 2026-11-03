@@ -67,8 +67,8 @@ export function AllowedCommands() {
       </div>
       <div className="flex flex-col gap-3 px-4 py-3.5">
         <p className="m-0 text-small text-muted-foreground">
-          Run without asking, inside the sandbox with no network. You can also add one by pressing Always allow when
-          Claude asks.
+          Run without asking, inside the sandbox with no network. You can also add one by pressing Always allow when the
+          agent asks.
         </p>
         {saved === undefined ? (
           // While the list loads: one chip's height, so the tab doesn't jump when it comes.

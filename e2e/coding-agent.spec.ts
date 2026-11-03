@@ -48,15 +48,15 @@ function claudeCard(page: Page): Locator {
   return page.getByRole('group', { name: 'Claude' });
 }
 
-/** The page has no sideways scroll, and the line about more agents sits under Claude's card at every width. */
+/** The page has no sideways scroll, and Codex's card, in the place of more agents, sits under Claude's at every width. */
 async function expectCardsLaidOut(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(
     0,
   );
   const claude = await claudeCard(page).boundingBox();
-  const more = await page.getByText('More agents are coming later.').boundingBox();
-  if (claude === null || more === null) throw new Error('the card or its line is not on screen');
-  expect(more.y).toBeGreaterThanOrEqual(claude.y + claude.height);
+  const codex = await page.getByRole('group', { name: 'Codex' }).boundingBox();
+  if (claude === null || codex === null) throw new Error('a card is not on screen');
+  expect(codex.y).toBeGreaterThanOrEqual(claude.y + claude.height);
 }
 
 /** The outline the browser draws around what has focus. */
@@ -124,7 +124,7 @@ test.describe('the first hub, whose Claude Code is never signed in', () => {
     });
     await page.goto('/settings/coding-agent');
     const card = claudeCard(page);
-    const modes = page.getByRole('region', { name: 'What Claude can do without asking' });
+    const modes = page.getByRole('region', { name: 'What the agent can do without asking' });
     const button = card.getByRole('button', { name: 'Check again' });
     await expect(button).toBeVisible();
     // Measured where the click leaves the page: at 360 px the button can start just below the fold, and the

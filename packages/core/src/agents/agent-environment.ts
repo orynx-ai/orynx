@@ -85,6 +85,31 @@ export function agentEnvironment(env: Environment): Record<string, string> {
   return out;
 }
 
+/** Codex's own login and home (spec 052): an API key or a gateway in `OPENAI_*`, and `CODEX_HOME` or `CODEX_API_KEY`. */
+const codexNames = new Set(['CODEX_HOME', 'CODEX_API_KEY']);
+
+function allowedForCodex(name: string): boolean {
+  return (
+    names.has(name) ||
+    proxyNames.has(name.toLowerCase()) ||
+    name.startsWith('LC_') ||
+    name.startsWith('OPENAI_') ||
+    codexNames.has(name)
+  );
+}
+
+/**
+ * What Codex's programs get (spec 052): the same short list as Claude's, with Codex's own variables in place of
+ * Claude's, so neither agent gets the other's login. A Codex shell's own variables, such as `CODEX_THREAD_ID`, stay out.
+ */
+export function codexEnvironment(env: Environment): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [name, value] of Object.entries(env)) {
+    if (value !== undefined && allowedForCodex(name)) out[name] = value;
+  }
+  return out;
+}
+
 /**
  * The environment of the git that makes, fetches and removes a session's worktree (spec 011, Q8d): the
  * same short list, your SSH agent so an SSH fetch can sign in, and never a password prompt, because no

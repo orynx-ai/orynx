@@ -30,6 +30,16 @@ describe('StatusSchema', () => {
     expect(status.integrations.jira.state).toBe('not_connected');
   });
 
+  it('052 AC-2: says whether each agent is signed in, Claude and Codex both off by default', () => {
+    expect(makeStatus().agents).toEqual({ claude: { connected: false }, codex: { connected: false } });
+    expect(makeStatus({ agents: { codex: { connected: true } } }).agents).toEqual({
+      claude: { connected: false },
+      codex: { connected: true },
+    });
+    const { codex: _left, ...claudeOnly } = makeStatus().agents;
+    expect(StatusSchema.safeParse({ ...makeStatus(), agents: claudeOnly }).success).toBe(false);
+  });
+
   it('016 AC-5: knows Discord as a fourth tool, not connected until it is set up', () => {
     expect(IntegrationIdSchema.options).toEqual(['jira', 'github', 'slack', 'discord']);
     expect(makeStatus().integrations.discord).toEqual({ state: 'not_connected', detail: null });

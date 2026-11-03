@@ -7,6 +7,7 @@ import { useSearchIndex } from '../../search/queries.ts';
 import { useTicketDialogStore } from '../../tickets/ticket-dialog-store.ts';
 import { briefNote, contextWords } from '../ticket-tab-words.ts';
 import { TicketPanel } from './ticket-panel.tsx';
+import { forAgent } from '../../../words/agent-words.ts';
 
 /** Everything Claude was sent; a session saved before Orynx kept that list has its ticket alone. */
 export function contextOf(session: Session): ComposerChip[] {
@@ -82,7 +83,7 @@ export function ContextPanel({ session }: { session: Session }) {
   return (
     <div className="flex min-w-0 flex-col gap-4">
       {session.source?.kind === 'jira' ? <TicketPanel session={session} /> : null}
-      <AttentionList aria-label={contextWords.list}>
+      <AttentionList aria-label={forAgent(contextWords.list, session.agent)}>
         {contextOf(session).map((chip) => {
           const sub = subLine(chip);
           return (

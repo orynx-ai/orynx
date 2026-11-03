@@ -15,6 +15,7 @@ import { cannotSendLine, followUpBox, followUpOffLine, sendFailedLine } from '..
 import { useSendMessage } from '../queries.ts';
 import { followUpFormSchema, type FollowUpFormValues } from '../schemas.ts';
 import { useSessionDrafts } from '../store.ts';
+import { forAgent } from '../../../words/agent-words.ts';
 
 const noChips: ComposerChip[] = [];
 
@@ -33,9 +34,11 @@ function FollowUpForm({ session }: { session: Session }) {
   const dropChipFrom = useSessionDrafts((state) => state.dropChip);
   const model = useComposerStore((state) => state.model);
   const effort = useComposerStore((state) => state.effort);
+  const agent = useComposerStore((state) => state.agent);
   const setModel = useComposerStore((state) => state.setModel);
   const setEffort = useComposerStore((state) => state.setEffort);
-  const choice = useAgentChoice(model, effort);
+  // A session keeps its agent (spec 052): its follow-ups go to it, with its own models.
+  const choice = useAgentChoice(model, effort, agent, session.agent);
   const send = useSendMessage(session.id);
   // Why a chip wasn't added: a full kind, or a file that looks like a secret.
   const [refused, setRefused] = useState<string | null>(null);
@@ -78,7 +81,7 @@ function FollowUpForm({ session }: { session: Session }) {
         : send.isError
           ? { line: sendFailedLine, link: null }
           : answer?.result === 'cannot_send'
-            ? { line: cannotSendLine(answer.reason), link: null }
+            ? { line: forAgent(cannotSendLine(answer.reason), session.agent), link: null }
             : answer?.result === 'context_failed'
               ? failed === undefined
                 ? { line: sendFailedLine, link: null }
@@ -108,8 +111,8 @@ function FollowUpForm({ session }: { session: Session }) {
         <Composer canSend={canSend} pending={send.isPending} onSubmit={submit}>
           <ContextStrip box={() => box.current} />
           <ComposerTextarea
-            label={followUpBox.label}
-            placeholder={followUpBox.placeholder}
+            label={forAgent(followUpBox.label, session.agent)}
+            placeholder={forAgent(followUpBox.placeholder, session.agent)}
             {...field}
             // A paste that is exactly one key, pull request link or message link becomes its chip, as on Home.
             onPaste={pasteToChip}
@@ -129,7 +132,14 @@ function FollowUpForm({ session }: { session: Session }) {
             />
             {/* The picker's own row under 640 px, as on Home, so the box never grows when it arrives. */}
             <div className="flex min-h-8 min-w-0 items-center gap-2 max-sm:order-last max-sm:basis-full">
-              <AgentPicker model={model} effort={effort} onModelChange={setModel} onEffortChange={setEffort} />
+              <AgentPicker
+                agent={agent}
+                model={model}
+                effort={effort}
+                only={session.agent}
+                onModelChange={setModel}
+                onEffortChange={setEffort}
+              />
             </div>
             <ComposerSend label={followUpBox.send} />
           </ComposerBar>

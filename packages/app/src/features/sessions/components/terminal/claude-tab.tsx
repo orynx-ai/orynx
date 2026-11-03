@@ -13,6 +13,7 @@ import { useRespondToApproval, useSessionCommands } from '../../queries.ts';
 import { refusedTitle } from '../../step-words.ts';
 import { answerFailure } from '../approval-callout.tsx';
 import { copyWhat, cutNote, statusWords, terminalWords } from './terminal-words.ts';
+import { forAgent } from '../../../../words/agent-words.ts';
 
 type CommandApproval = Extract<Session['approvals'][number], { kind: 'command' }>;
 
@@ -84,12 +85,14 @@ function WaitingCommand({ session, approval }: { session: Session; approval: Com
   return (
     <CommandBlock
       command={approval.command}
-      badge={<Pill tone="info">{terminalWords.claude}</Pill>}
+      badge={<Pill tone="info">{forAgent(terminalWords.claude, session.agent)}</Pill>}
       status={statusWords.waiting}
       tone="warning"
     >
       <span className="min-w-0 flex-1 basis-64 text-warning">
-        {approval.alwaysAsk === null ? approvalTitle(approval) : alwaysAskLine(approval.alwaysAsk)}
+        {approval.alwaysAsk === null
+          ? approvalTitle(approval, session.agent)
+          : forAgent(alwaysAskLine(approval.alwaysAsk), session.agent)}
       </span>
       {choice('allow_once', approvalButtons.allowOnce)}
       {approval.alwaysAllow === null ? null : choice('always_allow', alwaysAllowLabel(approval.alwaysAllow))}
@@ -117,20 +120,21 @@ export function ClaudeTab({ session }: { session: Session }) {
     if (element !== null) element.scrollTop = element.scrollHeight;
   }, [count]);
 
-  const badge = <Pill tone="info">{terminalWords.claude}</Pill>;
+  const say = (words: string) => forAgent(words, session.agent);
+  const badge = <Pill tone="info">{say(terminalWords.claude)}</Pill>;
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex flex-wrap items-center gap-2 border-b border-border px-3.5 py-2 text-label text-muted-foreground">
         <Pill plain>{terminalWords.sandbox}</Pill>
         <Pill plain>{terminalWords.readOnly}</Pill>
-        <span>{terminalWords.claudeMeta}</span>
+        <span>{say(terminalWords.claudeMeta)}</span>
       </div>
       {/* It scrolls once there are many commands, so it takes focus to scroll by keyboard; the ring is drawn inside. */}
       <div
         ref={log}
         role="log"
         aria-live="polite"
-        aria-label={terminalWords.claudeLog}
+        aria-label={say(terminalWords.claudeLog)}
         aria-busy={commands.isPending}
         // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a scrolling region must take keyboard focus (WCAG 2.1.1)
         tabIndex={0}
@@ -143,7 +147,7 @@ export function ClaudeTab({ session }: { session: Session }) {
           </>
         ) : commands.isError ? (
           <div className="flex flex-wrap items-center gap-2 text-small">
-            <span>{terminalWords.claudeNotLoaded}</span>
+            <span>{say(terminalWords.claudeNotLoaded)}</span>
             <Button
               size="sm"
               variant="secondary"
@@ -177,7 +181,9 @@ export function ClaudeTab({ session }: { session: Session }) {
           <WaitingCommand key={approval.id} session={session} approval={approval} />
         ))}
       </div>
-      <p className="border-t border-border px-3.5 py-2 text-label text-muted-foreground">{terminalWords.claudeFoot}</p>
+      <p className="border-t border-border px-3.5 py-2 text-label text-muted-foreground">
+        {say(terminalWords.claudeFoot)}
+      </p>
     </div>
   );
 }

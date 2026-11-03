@@ -45,11 +45,11 @@ export const permissionRows: Record<
     help: 'Such as npm install, curl or git fetch. Allowed, they run outside the sandbox.',
     short: 'use the network',
     choices: [allow, ask],
-    warning: 'Anything Claude downloads runs on your computer.',
+    warning: 'Anything the agent downloads runs on your computer.',
   },
   unsandboxed: {
     title: 'Commands outside the sandbox',
-    help: "When Claude asks to run one there. One Orynx can't read always asks.",
+    help: "When the agent asks to run one there. One Orynx can't read always asks.",
     short: 'run outside the sandbox',
     choices: [allow, ask],
     warning: 'These can change files and settings anywhere on your computer.',

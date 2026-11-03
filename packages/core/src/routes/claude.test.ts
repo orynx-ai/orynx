@@ -72,7 +72,7 @@ describe.skipIf(process.platform === 'win32')('Claude login routes', () => {
     const { app, folder } = await server({ kind: 'signed_in' });
 
     expect(await readLogin(app)).toEqual(signedIn);
-    expect((await readStatus(app)).agent).toEqual({ id: 'claude', connected: true });
+    expect((await readStatus(app)).agents.claude).toEqual({ connected: true });
     expect(await folder.runs()).toHaveLength(1);
   });
 
@@ -81,7 +81,7 @@ describe.skipIf(process.platform === 'win32')('Claude login routes', () => {
 
     expect(await readLogin(app)).toEqual({ state: 'signed_out' });
     const status = await readStatus(app);
-    expect(status.agent.connected).toBe(false);
+    expect(status.agents.claude.connected).toBe(false);
     expect(status.integrations.jira.state).toBe('not_connected');
   });
 
@@ -90,7 +90,7 @@ describe.skipIf(process.platform === 'win32')('Claude login routes', () => {
 
     expect(await readLogin(app)).toEqual({ state: 'error' });
     const status = await readStatus(app);
-    expect(status.agent.connected).toBe(false);
+    expect(status.agents.claude.connected).toBe(false);
     expect(status.integrations.github.state).toBe('not_connected');
   });
 
@@ -104,7 +104,7 @@ describe.skipIf(process.platform === 'win32')('Claude login routes', () => {
     expect(response.statusCode).toBe(200);
     expect(ClaudeLoginSchema.parse(response.json())).toEqual(signedIn);
     expect(seen).toEqual([{ type: 'status.changed' }]);
-    expect((await readStatus(app)).agent.connected).toBe(true);
+    expect((await readStatus(app)).agents.claude.connected).toBe(true);
     expect(await folder.runs()).toHaveLength(2);
   });
 
@@ -127,7 +127,7 @@ describe.skipIf(process.platform === 'win32')('Claude login routes', () => {
     });
 
     const status = await readStatus(app);
-    expect(status.agent.connected).toBe(false);
+    expect(status.agents.claude.connected).toBe(false);
     expect(status.integrations.jira.state).toBe('not_connected');
     expect(await readLogin(app)).toEqual({ state: 'error' });
   });
@@ -138,7 +138,7 @@ describe.skipIf(process.platform === 'win32')('Claude login routes', () => {
     app = await createServer({ token, port, version: '1.2.3', userName: () => Promise.resolve(null) });
 
     expect(await readLogin(app)).toEqual({ state: 'error' });
-    expect((await readStatus(app)).agent.connected).toBe(false);
+    expect((await readStatus(app)).agents.claude.connected).toBe(false);
     expect(await folder.runs()).toEqual([]);
   });
 });

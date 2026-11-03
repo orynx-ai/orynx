@@ -37,10 +37,10 @@ describe('Settings › Skills', () => {
     expect(within(pageBar()).getByText('2 skills in ~/.devhub/plugin')).toBeVisible();
     expect(within(pageBar()).getByRole('button', { name: 'New skill' })).toBeVisible();
     expect(within(pageBar()).queryByText('Changes save automatically')).not.toBeInTheDocument();
-    expect(screen.getByText('A skill tells Claude how to do one kind of work')).toBeVisible();
+    expect(screen.getByText('A skill tells the agent how to do one kind of work')).toBeVisible();
     expect(
       screen.getByText(
-        'Claude reads a skill only in a session where you name it with / in the composer. Skills live in your own folder, outside your repos and ~/.claude.',
+        'The agent reads a skill only in a session where you name it with / in the composer. Skills live in your own folder, outside your repos and ~/.claude.',
       ),
     ).toBeVisible();
   });
@@ -83,7 +83,7 @@ describe('Settings › Skills', () => {
     );
     await renderApp({ route: '/settings/skills' });
 
-    expect(await screen.findByText('A skill tells Claude how to do one kind of work')).toBeVisible();
+    expect(await screen.findByText('A skill tells the agent how to do one kind of work')).toBeVisible();
     expect(screen.queryByRole('list', { name: 'Your skills' })).not.toBeInTheDocument();
     expect(screen.queryByText('No skills yet.')).not.toBeInTheDocument();
     expect(await screen.findByRole('list', { name: 'Your skills' })).toBeVisible();
@@ -180,7 +180,7 @@ describe('Settings › Skills', () => {
     await user.type(name, 'PR review');
     expect(screen.getByRole('textbox', { name: 'Folder name' })).toHaveValue('pr-review');
     await user.type(screen.getByRole('textbox', { name: 'When to use it' }), 'Review it.');
-    await user.type(screen.getByRole('textbox', { name: 'Instructions for Claude' }), 'Go.');
+    await user.type(screen.getByRole('textbox', { name: 'Instructions for the agent' }), 'Go.');
     await user.click(screen.getByRole('button', { name: 'Save skill' }));
 
     expect(await screen.findByRole('heading', { level: 2, name: 'PR review' })).toBeVisible();

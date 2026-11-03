@@ -19,11 +19,13 @@ describe('loadConfig', () => {
       tokens: { fromEnv: false, env: {}, ignored: [] },
       ghSearchPath: '',
       claudeCode: null,
+      codex: null,
       sandbox: 'required',
       lan: false,
       service: null,
       releasesUrl: null,
       agentEnvironment: {},
+      codexEnvironment: {},
       gitEnvironment: { GIT_TERMINAL_PROMPT: '0' },
       terminalEnvironment: { TERM: 'xterm-256color', COLORTERM: 'truecolor' },
     });
@@ -85,6 +87,20 @@ describe('loadConfig', () => {
     );
     expect(loadConfig({ env: {}, envFile: 'DEVHUB_CLAUDE_CODE=/tmp/elsewhere/claude\n' }).claudeCode).toBeNull();
     expect(loadConfig({ env: { DEVHUB_CLAUDE_CODE: '' } }).claudeCode).toBeNull();
+  });
+
+  it('052 AC-1: runs the Codex a shell names with DEVHUB_CODEX, never one written in .env', () => {
+    expect(loadConfig({ env: { DEVHUB_CODEX: '/opt/homebrew/bin/codex' } }).codex).toBe('/opt/homebrew/bin/codex');
+    expect(loadConfig({ env: {}, envFile: 'DEVHUB_CODEX=/tmp/elsewhere/codex\n' }).codex).toBeNull();
+    expect(loadConfig({ env: { DEVHUB_CODEX: '' } }).codex).toBeNull();
+    expect(() => loadConfig({ env: { DEVHUB_CODEX: 'codex' } })).toThrow(/DEVHUB_CODEX/);
+  });
+
+  it("052 AC-25: gives Codex only its part of the shell's environment, and none of Claude's or DevHub's", () => {
+    const config = loadConfig({
+      env: { PATH: '/usr/bin', OPENAI_API_KEY: 'fake-openai', ANTHROPIC_API_KEY: 'fake-anthropic', DEVHUB_PORT: '1' },
+    });
+    expect(config.codexEnvironment).toEqual({ PATH: '/usr/bin', OPENAI_API_KEY: 'fake-openai' });
   });
 
   it('AC-12: stops on a DEVHUB_CLAUDE_CODE that is not an absolute path, and names it', () => {

@@ -164,7 +164,7 @@ describe('ClaudeCard', () => {
         connected = true;
         return HttpResponse.json(makeClaudeSignedIn());
       }),
-      http.get(apiUrl(apiRoutes.status), () => HttpResponse.json(makeStatus({ agent: { id: 'claude', connected } }))),
+      http.get(apiUrl(apiRoutes.status), () => HttpResponse.json(makeStatus({ agents: { claude: { connected } } }))),
     );
     const { card, user } = await openCard();
 

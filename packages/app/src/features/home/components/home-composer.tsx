@@ -33,6 +33,7 @@ import { useSkillSuggestions } from './skill-suggestions.tsx';
 import { FolderPicker } from './folder-picker.tsx';
 import { composerFormSchema, type ComposerFormValues } from '../schemas.ts';
 import { useComposerStore, type StartTried } from '../store.ts';
+import { forAgent } from '../../../words/agent-words.ts';
 
 /** One line under the box, or the choice when the work already has a session (spec 047, AC-1). */
 type Said = { line: string; link: SettingsLink | null } | { held: string; pull: boolean; sessionId: string };
@@ -74,9 +75,12 @@ export function HomeComposer() {
   const sent = useComposerStore((state) => state.sent);
   const model = useComposerStore((state) => state.model);
   const effort = useComposerStore((state) => state.effort);
+  const agent = useComposerStore((state) => state.agent);
   const setModel = useComposerStore((state) => state.setModel);
   const setEffort = useComposerStore((state) => state.setEffort);
-  const choice = useAgentChoice(model, effort);
+  const choice = useAgentChoice(model, effort, agent);
+  // The words name the agent the start goes to (spec 052, Q4).
+  const using = choice.agent ?? 'claude';
   const mode = useComposerStore((state) => state.mode);
   const setMode = useComposerStore((state) => state.setMode);
   const tried = useComposerStore((state) => state.tried);
@@ -178,8 +182,8 @@ export function HomeComposer() {
           <ComposerTextarea
             {...suggestions.boxProps}
             id={newTaskTargetId}
-            label={composerWords.label}
-            placeholder={placeholderFor(ticketKeys, mode)}
+            label={forAgent(composerWords.label, using)}
+            placeholder={forAgent(placeholderFor(ticketKeys, mode), using)}
             readOnly={start.isPending}
             {...field}
             // A paste that is exactly one key, pull request link or message link becomes its chip (AC-14, Q6).
@@ -219,11 +223,17 @@ export function HomeComposer() {
               {pickers ? (
                 <>
                   <FolderPicker />
-                  <AgentPicker model={model} effort={effort} onModelChange={setModel} onEffortChange={setEffort} />
+                  <AgentPicker
+                    agent={agent}
+                    model={model}
+                    effort={effort}
+                    onModelChange={setModel}
+                    onEffortChange={setEffort}
+                  />
                 </>
               ) : null}
             </div>
-            <ComposerSend label={start.isPending ? composerWords.sending : composerWords.send} />
+            <ComposerSend label={forAgent(start.isPending ? composerWords.sending : composerWords.send, using)} />
           </ComposerBar>
         </Composer>
         {suggestions.list}
@@ -256,7 +266,7 @@ export function HomeComposer() {
         </Callout>
       ) : (
         <p role="alert" className="m-0 text-small text-danger">
-          {said.line}
+          {forAgent(said.line, using)}
           {said.link === null ? null : (
             <>
               {' '}

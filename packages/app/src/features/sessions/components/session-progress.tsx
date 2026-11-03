@@ -323,7 +323,7 @@ export function SessionProgress({ session, footer }: { session: Session; footer?
   const working = session.state === 'working' || session.state === 'needs_you';
   const last = session.activities.at(-1);
   const row = (activity: SessionActivity, grouped: boolean, className?: string) => {
-    const words = stepWords(activity);
+    const words = stepWords(activity, session.agent);
     const { state, icon } = look(activity);
     return (
       <ActivityStep
@@ -377,7 +377,7 @@ export function SessionProgress({ session, footer }: { session: Session; footer?
                   icon={state === 'done' || latest === undefined ? <Icon icon={Tick02Icon} /> : look(latest).icon}
                   title={label}
                   // Only while it's closed: open, its latest row is right under it.
-                  summary={isOpen(kind) || latest === undefined ? undefined : stepWords(latest).title}
+                  summary={isOpen(kind) || latest === undefined ? undefined : stepWords(latest, session.agent).title}
                   time={group.ms === null ? undefined : stepTimeText(group.ms)}
                   open={isOpen(kind)}
                   onOpenChange={(open) => {

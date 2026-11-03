@@ -35,6 +35,7 @@ import {
 } from './folder-picker/folder-picker.ts';
 import { agentRoutes } from './routes/agent.ts';
 import { claudeRoutes } from './routes/claude.ts';
+import { codexRoutes } from './routes/codex.ts';
 import { eventsRoutes } from './routes/events.ts';
 import { githubRoutes } from './routes/github.ts';
 import { slackRoutes } from './routes/slack.ts';
@@ -64,6 +65,9 @@ import type { Keychain } from './secrets/keychain.ts';
 import { createMemoryKeychain } from './secrets/memory-keychain.ts';
 import { createTokenStore, type EnvTokens, type TokenStore } from './secrets/token-store.ts';
 import { createClaudeAdapter, type QueryFunction } from './agents/claude/claude-adapter.ts';
+import { createCodexAdapter } from './agents/codex/codex-adapter.ts';
+import { createCodexLogin } from './agents/codex/codex-login.ts';
+import { codexCheckArgs } from './agents/codex/launch.ts';
 import { sandboxSettings } from './agents/claude/sandbox.ts';
 import { createChangesReader } from './sessions/changes.ts';
 import { createContextReader } from './sessions/context-reader.ts';
@@ -114,6 +118,16 @@ export interface CoreOptions {
     program: string;
     env: Readonly<Record<string, string>>;
     /** Claude Code's sandbox can run here (spec 012, Q2b). Left out, sessions get no commands. */
+    sandbox?: boolean;
+  };
+  /**
+   * Codex beside Claude (spec 052): the `codex` found on this computer, null when there's none, with Codex's own
+   * allow-listed environment. Left out, Codex is never run, so no test can run the real one.
+   */
+  codex?: {
+    program: string | null;
+    env: Readonly<Record<string, string>>;
+    /** A sandbox can run here (spec 012, Q2b). Left out, Codex's sessions get no commands. */
     sandbox?: boolean;
   };
   /** The environment a session's git runs with, from `gitEnvironment()`. Empty by default. */
@@ -464,6 +478,30 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
                   })
               : null,
         });
+  // Codex's login, read in Orynx's own folder (spec 052); with no Codex found, it's never run.
+  const codexLogin = createCodexLogin({
+    program: options.codex?.program ?? null,
+    env: options.codex?.env ?? {},
+    args: codexCheckArgs,
+    workFolder: join(devhubHome, 'codex-check'),
+    events,
+    // Its kind alone: never what Codex printed, which can hold the account.
+    onProblem: (problem) => {
+      app.log.warn({ codex: problem }, "Codex's login check failed");
+    },
+  });
+  const codexAdapter =
+    options.codex === undefined
+      ? null
+      : createCodexAdapter({
+          program: options.codex.program,
+          env: options.codex.env,
+          home: userHome,
+          devhubHome,
+          temporary: tmpdir(),
+          platform: process.platform,
+          runsCommands: options.codex.sandbox === true,
+        });
   const terminal =
     options.terminal === undefined
       ? null
@@ -479,6 +517,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     records: sessions,
     repositories,
     claude,
+    codex: { adapter: codexAdapter, login: codexLogin },
     connection: jira,
     jira: jiraClient,
     context: createContextReader({
@@ -610,6 +649,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     slack: () => slack.status(),
     discord: () => discord.status(),
     claude: () => claude.connected(),
+    codex: () => codexLogin.connected(),
   });
 
   await app.register(
@@ -665,10 +705,13 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
         }),
       });
       await api.register(claudeRoutes, { claude });
+      await api.register(codexRoutes, { codex: codexLogin });
       await api.register(agentRoutes, {
-        // Signed out, Claude Code has nothing to offer, so it isn't started.
-        models: async () =>
-          adapter === null || !(await claude.connected()) ? { state: 'unavailable' } : adapter.models(),
+        // Signed out, an agent has nothing to offer, so it isn't started.
+        models: async (agent) => {
+          const [listing, login] = agent === 'codex' ? [codexAdapter, codexLogin] : [adapter, claude];
+          return listing === null || !(await login.connected()) ? { state: 'unavailable' } : listing.models();
+        },
       });
       await api.register(preferencesRoutes, { preferences });
       await api.register(setupRoutes, {

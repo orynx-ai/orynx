@@ -19,6 +19,7 @@ import {
 } from '../approval-words.ts';
 import { useRespondToApproval } from '../queries.ts';
 import { QuestionForm } from './question-form.tsx';
+import { forAgent } from '../../../words/agent-words.ts';
 
 /** What the callout shows under its title: the command as written, the edit's change (Q9), or the ticket (spec 037). */
 function What({ approval }: { approval: Exclude<SessionApproval, { kind: 'question' }> }) {
@@ -172,7 +173,7 @@ export function ApprovalCallout({
         key={approval.id}
         tone="warning"
         role="alert"
-        title={approvalTitle(approval)}
+        title={approvalTitle(approval, session.agent)}
         actions={
           approval.kind === 'question' ? undefined : (
             <>
@@ -239,7 +240,7 @@ export function ApprovalCallout({
         <div className="fixed inset-x-4 bottom-4 z-20 mx-auto max-w-180 rounded-md shadow-overlay max-md:bottom-19">
           <ResumeBanner
             asChild
-            title={approval.kind === 'question' ? answerBar.title : approvalBar.title}
+            title={forAgent(approval.kind === 'question' ? answerBar.title : approvalBar.title, session.agent)}
             detail={
               approval.kind === 'question' ? (
                 // The first question's header, or the question when it has none (spec 051, AC-14).

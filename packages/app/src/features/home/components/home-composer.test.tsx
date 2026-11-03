@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { apiRoutes, type StartSessionAnswer } from '@devhub/contracts';
-import { makeRepository } from '@devhub/contracts/testing';
+import { makeRepository, makeStatus } from '@devhub/contracts/testing';
 import { apiUrl, server } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
 import { useComposerStore } from '../store.ts';
@@ -389,5 +389,28 @@ describe('pasting and removing chips (spec 015)', () => {
     await user.keyboard('{Enter}');
     expect(box()).toHaveFocus();
     expect(screen.queryByRole('list', { name: 'Context for Claude' })).toBeNull();
+  });
+});
+
+describe("Home's composer on Codex (spec 052)", () => {
+  it('052 AC-24: names Codex in the box, Send and the line that says it is signed out', async () => {
+    serve({ result: 'cannot_start', reason: 'signed_out' });
+    server.use(
+      http.get(apiUrl(apiRoutes.status), () =>
+        HttpResponse.json(makeStatus({ agents: { claude: { connected: false }, codex: { connected: true } } })),
+      ),
+    );
+    useComposerStore.setState({ agent: 'codex' });
+    const { user } = await renderApp();
+
+    await user.type(await screen.findByRole('textbox', { name: 'Describe a task for Codex' }), 'Add a CSV export');
+    await user.click(screen.getByRole('button', { name: 'Send to Codex' }));
+    expect(await screen.findByText("Codex isn't signed in.")).toBeVisible();
+  });
+
+  it("Claude's words stay Claude's while Claude is the agent", async () => {
+    serve();
+    await renderApp();
+    expect(await screen.findByRole('textbox', { name: 'Describe a task for Claude' })).toBeVisible();
   });
 });

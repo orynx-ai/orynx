@@ -125,7 +125,7 @@ export function StepDetails({ session, activity }: { session: Session; activity:
     case 'plan':
       return (
         <ActivityChecklist
-          aria-label={stepWords(activity).title}
+          aria-label={stepWords(activity, session.agent).title}
           // Marks by place; a plan saved before spec 046 has none (AC-14).
           items={activity.items.map((text, index) => ({ text, status: activity.statuses?.[index] }))}
         />

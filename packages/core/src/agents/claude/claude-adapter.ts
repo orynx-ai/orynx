@@ -22,7 +22,7 @@ import {
   type SessionQuestion,
 } from '@devhub/contracts';
 import { briefText } from '../../sessions/brief.ts';
-import type { TicketTool, TicketToolDone } from '../../orynx-tickets/tools.ts';
+import { ticketTitle, type TicketTool, type TicketToolDone } from '../../orynx-tickets/tools.ts';
 import {
   askText,
   type AgentAdapter,
@@ -156,12 +156,6 @@ function orynxServer(
       ),
     ],
   });
-}
-
-/** A ticket's title, read with the session's own get_ticket tool, for the ask before a delete; null when it's gone. */
-async function ticketTitle(tools: readonly TicketTool[], key: string): Promise<string | null> {
-  const answer = await tools.find((ticketTool) => ticketTool.name === 'get_ticket')?.run({ key });
-  return answer === undefined || answer.error === true || answer.done.action === 'listed' ? null : answer.done.title;
 }
 
 /** The tools that write a file, before the first of which the session makes its branch (spec 042). */

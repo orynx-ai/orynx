@@ -1,5 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ComposerStart, FileCheckAnswer, FileCheckRequest, FilePicks, InboxItem } from '@devhub/contracts';
+import type {
+  AgentId,
+  ComposerStart,
+  FileCheckAnswer,
+  FileCheckRequest,
+  FilePicks,
+  InboxItem,
+} from '@devhub/contracts';
 import {
   agentModelsQueryOptions,
   inboxQueryOptions,
@@ -10,10 +17,10 @@ import {
 } from '@devhub/api-client';
 import { useApi } from '../../api.tsx';
 
-/** The models Claude offers now, for the agent picker: asked only while Claude is connected. */
-export function useAgentModels(connected: boolean) {
+/** The models an agent offers now, for the agent picker: asked only while that agent is connected (spec 052). */
+export function useAgentModels(agent: AgentId, connected: boolean) {
   const api = useApi();
-  return useQuery({ ...agentModelsQueryOptions(api), enabled: connected });
+  return useQuery({ ...agentModelsQueryOptions(api, agent), enabled: connected });
 }
 
 /** A row of Home's list. A Claude session on neither a ticket nor a pull request has no tool (spec 015, AC-24). */

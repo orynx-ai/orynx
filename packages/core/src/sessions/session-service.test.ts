@@ -11,6 +11,10 @@ import { createClaudeAdapter } from '../agents/claude/claude-adapter.ts';
 import { sandboxSettings } from '../agents/claude/sandbox.ts';
 import { createClaudeCode } from '../agents/claude/claude-code.ts';
 import { createClaudeLogin } from '../agents/claude/claude-login.ts';
+import { createCodexAdapter } from '../agents/codex/codex-adapter.ts';
+import { createCodexLogin } from '../agents/codex/codex-login.ts';
+import { codexCheckArgs } from '../agents/codex/launch.ts';
+import { useFakeCodex, type FakeCodex } from '../test/fake-codex.ts';
 import { createEventBus } from '../events/event-bus.ts';
 import { createGitHubClient } from '../integrations/github/client.ts';
 import { createGitHubConnection } from '../integrations/github/connection.ts';
@@ -73,6 +77,7 @@ afterAll(() => {
 
 const repositories = useTestRepositories();
 const claudeFolder = useFakeClaudeFolder();
+const codexPrograms = useFakeCodex();
 const homes: string[] = [];
 const services: { close(): Promise<void> }[] = [];
 afterEach(async () => {
@@ -118,6 +123,8 @@ interface SetUpOptions {
   saveGate?: Promise<void>;
   /** How long the GitHub client waits for GitHub (spec 014). */
   githubTimeoutMs?: number;
+  /** Codex beside Claude (spec 052), as its login check answers; left out, no Codex. */
+  codex?: 'signed_in' | 'signed_out';
 }
 
 async function setUp({
@@ -136,6 +143,7 @@ async function setUp({
   preferencesGate,
   saveGate,
   githubTimeoutMs = 500,
+  codex,
 }: SetUpOptions = {}) {
   const repos = await repositories();
   const home = await realpath(await mkdtemp(join(tmpdir(), 'devhub-session-home-')));
@@ -176,6 +184,40 @@ async function setUp({
   });
 
   const sdk = fakeClaudeSdk(script, ...later);
+  // Codex's login is checked once here, then kept: the clock doesn't move unless a test moves it.
+  const fakeCodex = codex === undefined ? null : await codexPrograms();
+  let codexOption:
+    { adapter: ReturnType<typeof createCodexAdapter>; login: ReturnType<typeof createCodexLogin> } | undefined;
+  if (fakeCodex !== null) {
+    const login = createCodexLogin({
+      program: fakeCodex.program,
+      env: { PATH: '/usr/bin:/bin' },
+      args: codexCheckArgs,
+      workFolder: join(home, 'codex-check'),
+      events,
+      now,
+    });
+    const reading = login.read();
+    const check = await fakeCodex.next();
+    check.reply((await check.expectRequest('initialize')).id, {});
+    await check.read();
+    check.reply((await check.expectRequest('account/read')).id, {
+      account: codex === 'signed_in' ? { type: 'chatgpt', email: 'you@company.example' } : null,
+      requiresOpenaiAuth: true,
+    });
+    await reading;
+    const adapter = createCodexAdapter({
+      program: fakeCodex.program,
+      env: { PATH: '/usr/bin:/bin' },
+      home: repos.root,
+      devhubHome: home,
+      temporary: tmpdir(),
+      platform: 'darwin',
+      runsCommands: true,
+      stopGraceMs: 300,
+    });
+    codexOption = { adapter, login };
+  }
   const records = await openFileSessionStore(home, { now });
   // Your shell tabs (spec 036), with bash and none of the real home's profile. Not /bin/sh: Ubuntu's is dash,
   // which ignores a hang-up at its prompt until the SIGKILL, so AC-28's shell could never write it down.
@@ -241,6 +283,7 @@ async function setUp({
           sandbox: (worktree) =>
             sandboxSettings({ platform: 'darwin', worktree, devhubHome: home, home: repos.root, temporary: tmpdir() }),
         }),
+    ...(codexOption === undefined ? {} : { codex: codexOption }),
     events,
     terminal,
     ports: createPortService({}),
@@ -273,7 +316,28 @@ async function setUp({
     terminal,
     events,
     cleaned,
+    codex: fakeCodex,
   };
+}
+
+/**
+ * Plays Codex through one run (spec 052): its start, a new thread or the one it resumes, then a turn that ends with
+ * `summary`. Gives what Orynx asked Codex for.
+ */
+async function playCodex(fake: FakeCodex | null, { summary = 'Done.' }: { summary?: string } = {}) {
+  if (fake === null) throw new Error('No Codex in this test');
+  const codex = await fake.next();
+  codex.reply((await codex.expectRequest('initialize')).id, {});
+  await codex.read();
+  codex.reply((await codex.expectRequest('config/read')).id, { config: {} });
+  const thread = await codex.read();
+  if (thread.id === undefined) throw new Error('Orynx asked for no thread');
+  codex.reply(thread.id, { thread: { id: 'thread-1' } });
+  const turn = await codex.expectRequest('turn/start');
+  codex.reply(turn.id, { turn: { id: 'turn-1' } });
+  codex.notify('item/completed', { item: { type: 'agentMessage', id: 'm-1', text: summary } });
+  codex.notify('turn/completed', { threadId: 'thread-1', turn: { id: 'turn-1', status: 'completed' } });
+  return { thread, turn: turn.params };
 }
 
 /** Waits until the session has sent Claude its brief: from there a hanging Claude writes nothing more. */
@@ -2846,5 +2910,76 @@ describe('deleting old sessions on a schedule (spec 047, D)', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('sessions on Codex (spec 052)', () => {
+  const id = '0000000000000001';
+
+  it('AC-5: a ticket Build with Codex picked runs on Codex in its worktree, with that model and effort', async () => {
+    const { service, records, sdk, codex } = await setUp({ codex: 'signed_in' });
+    expect(
+      await service.start({ ticketKey: 'PROJ-1423', agent: 'codex', model: 'gpt-5.5-codex', effort: 'high' }),
+    ).toEqual({ result: 'started', sessionId: id });
+    const { thread, turn } = await playCodex(codex, { summary: 'Added the archive button.' });
+
+    const done = await settled(records);
+    expect(done.session).toMatchObject({ agent: 'codex', state: 'done' });
+    expect(done.session.activities.at(-1)).toMatchObject({ kind: 'finished', summary: 'Added the archive button.' });
+    expect(thread).toMatchObject({ method: 'thread/start', params: { cwd: done.worktree, model: 'gpt-5.5-codex' } });
+    expect(turn).toMatchObject({ effort: 'high' });
+    expect(done.claudeSessionId).toBe('thread-1');
+    // Claude never ran.
+    expect(sdk.runs).toHaveLength(0);
+  });
+
+  it('AC-6: Codex signed out refuses the start, whether Claude is signed in or not', async () => {
+    const { service, records } = await setUp({ codex: 'signed_out' });
+    expect(await service.start({ ticketKey: 'PROJ-1423', agent: 'codex' })).toEqual({
+      result: 'cannot_start',
+      reason: 'signed_out',
+    });
+    expect(await records.list()).toEqual([]);
+  });
+
+  it("AC-19: a follow-up after Done resumes Codex's own thread, and a model picked for Claude gives way", async () => {
+    const { service, records, sdk, codex } = await setUp({ codex: 'signed_in' });
+    await service.start({ ticketKey: 'PROJ-1423', agent: 'codex' });
+    await playCodex(codex);
+    await settled(records);
+
+    expect(await service.send(id, 'Now add a test', [], { agent: 'claude', model: 'opus' })).toEqual({
+      result: 'sent',
+    });
+    const { thread, turn } = await playCodex(codex, { summary: 'Added the test.' });
+    expect(thread).toMatchObject({ method: 'thread/resume', params: { threadId: 'thread-1' } });
+    expect(thread.params).not.toHaveProperty('model');
+    expect(turn).toMatchObject({ input: [{ type: 'text', text: 'Now add a test' }] });
+    expect((await settled(records)).session.activities.at(-1)).toMatchObject({ summary: 'Added the test.' });
+    expect(sdk.runs).toHaveLength(0);
+  });
+
+  it('AC-23: a session on Claude carries on with Claude, whatever agent the follow-up box names', async () => {
+    const { service, records, sdk } = await setUp({
+      codex: 'signed_in',
+      script: [{ finish: 'First.' }],
+      later: [[{ finish: 'Second.' }]],
+    });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await settled(records);
+
+    await service.send(id, 'Carry on', [], { agent: 'codex', model: 'gpt-5.5-codex' });
+    const done = await settled(records);
+    expect(done.session).toMatchObject({ agent: 'claude' });
+    expect(sdk.runs).toHaveLength(2);
+    expect(sdk.runs[1]?.options.model).toBeUndefined();
+  });
+
+  it('a server with no Codex refuses a start on it, with Claude still there', async () => {
+    const { service } = await setUp();
+    expect(await service.start({ ticketKey: 'PROJ-1423', agent: 'codex' })).toEqual({
+      result: 'cannot_start',
+      reason: 'signed_out',
+    });
   });
 });

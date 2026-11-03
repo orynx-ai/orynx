@@ -73,6 +73,14 @@ Rule 4 lives in `packages/core/src/sessions/pull-requests.ts`, wired into `sessi
 - **Jira's tools** (`jira-tools.ts`, spec 044), there while Jira is connected as a run starts: reads run at once; a comment, move or assignment returns a `jira` ask from `asks()` unless `preferences.read().jiraChanges` is true, read for every call. `asks()` may also return `{ refused }`, which turns the call down before anyone's asked (a bad input, a status the issue can't reach), with words for Claude and no step. Never return null from a write's `asks()` for any other reason.
 - **Ports** (`ports/`): a port is the session's only when its process runs under one of its Terminal tabs or from inside its worktree, read with `lsof` and `ps`. Stop checks that again before it signals anything.
 
+## Codex (spec 052)
+
+- Codex is a second `AgentAdapter` (`agents/codex/`), picked per session by `session.agent`; the session service holds one adapter per agent and each run keeps the one it started on. Read `learn/checking-codex.md` first.
+- It decides with Claude's own code: `decideToolUse('Bash')` for a command, `decideToolUse('Write')` for each path of an edit, the ticket and session decisions for Orynx's tools. Never a second decision table.
+- Every Codex app-server starts with `launch.ts`'s overrides (`untrusted`, the `orynx` profile with `DEVHUB_HOME` denied, no hooks or notify), and every MCP server `config/read` names is turned off for the thread. A change there is a security change.
+- Codex gets `codexEnvironment()`, never `agentEnvironment()`. Its commits carry no co-author line (Q8).
+- Fake Codex only at its program: `test/fake-codex.ts` in core, `e2e/fake-codex/` in e2e.
+
 ## Session states
 
 States come from `SessionStateSchema` in `packages/contracts/src/session.ts`: `working`, `needs_you`, `done`, `pr_open`, `stopped`. Once a session has a `pullRequest`, Claude finishing a follow-up leaves it `pr_open`, not `done`. Each is shown with an icon, a word and a colour (spec table "Session states"). Never colour alone.

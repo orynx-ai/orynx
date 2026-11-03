@@ -88,7 +88,7 @@ function ShownDiff({ session, file, editor }: { session: Session; file: ChangedF
     return here.length === 0 ? null : (
       <div className="flex flex-col gap-2">
         {here.map((comment) => (
-          <ReviewNote key={comment.id} sessionId={session.id} comment={comment} />
+          <ReviewNote key={comment.id} sessionId={session.id} comment={comment} agent={session.agent} />
         ))}
       </div>
     );

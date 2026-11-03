@@ -109,7 +109,9 @@ describe('SettingsScreen', () => {
     await waitFor(() => {
       expect(history.location.pathname).toBe('/settings/coding-agent');
     });
-    const check = await screen.findByRole('button', { name: 'Check again' });
+    const check = await within(await screen.findByRole('group', { name: 'Claude' })).findByRole('button', {
+      name: 'Check again',
+    });
 
     await user.tab();
     expect(screen.getByRole('tabpanel', { name: 'Coding agent' })).toHaveFocus();

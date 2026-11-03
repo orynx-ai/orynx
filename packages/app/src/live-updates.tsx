@@ -12,10 +12,11 @@ function keysFor(event: ServerEvent): readonly (readonly string[])[] {
     case 'status.changed':
       // Connecting or disconnecting a tool also changes its saved settings (specs 003 and 004), and which
       // tools the inbox shows (spec 007). A check that found Claude's login changed changes its card (spec 010),
-      // and the models Claude offers.
+      // and the models Claude offers; Codex's the same (spec 052).
       return [
         queryKeys.status,
         queryKeys.claudeLogin,
+        queryKeys.codexLogin,
         queryKeys.agentModels,
         queryKeys.jiraConnection,
         queryKeys.githubConnection,

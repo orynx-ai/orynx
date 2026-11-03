@@ -25,8 +25,8 @@ export const ConnectionCheckSchema = z.object({
 });
 export type ConnectionCheck = z.infer<typeof ConnectionCheckSchema>;
 
+/** Whether an agent is signed in on this computer, so sessions can start on it. */
 export const AgentStatusSchema = z.object({
-  id: z.literal('claude'),
   connected: z.boolean(),
 });
 export type AgentStatus = z.infer<typeof AgentStatusSchema>;
@@ -42,7 +42,8 @@ export type User = z.infer<typeof UserSchema>;
 export const StatusSchema = z.object({
   version: z.string(),
   user: UserSchema,
-  agent: AgentStatusSchema,
+  /** Claude and Codex (spec 052). */
+  agents: z.object({ claude: AgentStatusSchema, codex: AgentStatusSchema }),
   integrations: z.object({
     jira: IntegrationStatusSchema,
     github: IntegrationStatusSchema,

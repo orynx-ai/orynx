@@ -1,11 +1,13 @@
 import {
   orynxStatusNames,
+  type AgentId,
   type BranchFrom,
   type Session,
   type SessionActivity,
   type SessionIntent,
   type SessionProblem,
 } from '@devhub/contracts';
+import { forAgent } from '../../words/agent-words.ts';
 
 /**
  * The words for each step of "Claude's progress" and for a session that couldn't start (spec 011, Q10a and
@@ -197,7 +199,13 @@ function serverWords(activity: Extract<SessionActivity, { kind: 'server' }>): St
 
 const labelsOf = (steps: readonly { label: string }[]) => steps.map((step) => step.label).join(' · ');
 
-export function stepWords(activity: SessionActivity): StepWords {
+/** A step's words, naming the agent the session runs on (spec 052, Q4). */
+export function stepWords(activity: SessionActivity, agent: AgentId = 'claude'): StepWords {
+  const { title, detail } = claudeStepWords(activity);
+  return { title: forAgent(title, agent), detail: detail === null ? null : forAgent(detail, agent) };
+}
+
+function claudeStepWords(activity: SessionActivity): StepWords {
   const running = activity.state === 'running';
   switch (activity.kind) {
     case 'worktree': {
@@ -359,15 +367,19 @@ export function problemWords(problem: SessionProblem, session: Session): Problem
     jira: `Orynx couldn't read ${key} from Jira. Check Settings › Connections, then start again.`,
     folder: `${session.folder?.displayPath ?? 'The folder'} isn't a git repository any more. Check Settings › Repositories.`,
     git: "git couldn't make the worktree. See the terminal for details.",
-    login: "Claude Code's login didn't work. Sign in with `claude` in a terminal, then start again.",
+    login:
+      session.agent === 'codex'
+        ? "Codex's login didn't work. Run `codex login` in a terminal, then start again."
+        : "Claude Code's login didn't work. Sign in with `claude` in a terminal, then start again.",
     limit: "Claude's service is busy or your usage limit is reached. Try again later.",
     resume: "Claude Code no longer has this session's conversation. Start again from the ticket.",
     other: 'See the terminal for details.',
   };
   // A follow-up Claude Code couldn't resume isn't a start that failed, nor an error while working (spec 013, Q10d).
-  if (problem.kind === 'resume') return { title: "Claude couldn't carry on", line: lines.resume };
+  const say = (words: string) => forAgent(words, session.agent);
+  if (problem.kind === 'resume') return { title: say("Claude couldn't carry on"), line: say(lines.resume) };
   return {
-    title: problem.stage === 'starting' ? "Claude couldn't start" : 'Claude stopped with an error',
-    line: lines[problem.kind],
+    title: say(problem.stage === 'starting' ? "Claude couldn't start" : 'Claude stopped with an error'),
+    line: say(lines[problem.kind]),
   };
 }

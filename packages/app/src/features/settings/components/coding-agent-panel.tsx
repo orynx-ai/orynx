@@ -46,6 +46,7 @@ import {
 } from '../permission-levels.ts';
 import { AllowedCommands } from './allowed-commands.tsx';
 import { ClaudeCard } from './claude-card.tsx';
+import { CodexCard } from './codex-card.tsx';
 import { EditorChoice } from './editor-choice.tsx';
 import { JiraChanges } from './jira-changes.tsx';
 import { OtherAgents } from './other-agents.tsx';
@@ -91,18 +92,15 @@ export function CodingAgentPanel() {
       <section aria-labelledby={agentId} className="flex flex-col gap-2.5">
         <SectionHeading id={agentId} icon={RoboticIcon} title="Agent" />
         <ClaudeCard />
+        <CodexCard />
         <OtherAgents />
         <JiraChanges />
-        <p className="m-0 text-small text-muted-foreground">
-          More agents are coming later. Each one plugs in through the same small adapter, so these settings will apply
-          to them too.
-        </p>
       </section>
       <section aria-labelledby={headingId} className="flex flex-col gap-3.5">
         <SectionHeading
           id={headingId}
           icon={SecurityCheckIcon}
-          title="What Claude can do without asking"
+          title="What the agent can do without asking"
           line={
             repository === null ? (
               'Start from a level, then change any row. Anything set to Ask waits for your click in the session.'

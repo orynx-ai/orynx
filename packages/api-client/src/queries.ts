@@ -1,5 +1,5 @@
 import { infiniteQueryOptions, queryOptions } from '@tanstack/react-query';
-import type { SessionListQuery, SyncActivityQuery } from '@devhub/contracts';
+import type { AgentId, SessionListQuery, SyncActivityQuery } from '@devhub/contracts';
 import type { ApiClient } from './client.ts';
 
 /** One key per resource. Server events invalidate by these keys (learn/live-updates.md). */
@@ -39,6 +39,7 @@ export const queryKeys = {
   /** The composer's skills, per folder (spec 022). */
   skills: ['skills'] as const,
   claudeLogin: ['claude', 'login'] as const,
+  codexLogin: ['codex', 'login'] as const,
   agentModels: ['agent', 'models'] as const,
   search: ['search'] as const,
   /** Settings › About (spec 045); updates.changed and sessions.changed refresh it. */
@@ -395,11 +396,23 @@ export function claudeLoginQueryOptions(api: ApiClient) {
   });
 }
 
-/** The models Claude offers now, for the composer's agent picker: kept 10 minutes, as the server keeps them. */
-export function agentModelsQueryOptions(api: ApiClient) {
+export function codexLoginQueryOptions(api: ApiClient) {
   return queryOptions({
-    queryKey: queryKeys.agentModels,
-    queryFn: () => api.agentModels(),
+    queryKey: queryKeys.codexLogin,
+    queryFn: () => api.codexLogin(),
+    // Freshness comes from the event stream (status.changed when the server's check finds a change).
+    staleTime: Infinity,
+  });
+}
+
+/**
+ * The models an agent offers now, for the composer's agent picker (spec 052): kept 10 minutes, as the server keeps
+ * them, each agent's beneath the key status.changed refreshes.
+ */
+export function agentModelsQueryOptions(api: ApiClient, agent: AgentId = 'claude') {
+  return queryOptions({
+    queryKey: [...queryKeys.agentModels, agent] as const,
+    queryFn: () => api.agentModels(agent),
     staleTime: 10 * 60_000,
     retry: false,
   });

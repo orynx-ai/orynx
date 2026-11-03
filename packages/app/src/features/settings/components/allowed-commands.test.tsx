@@ -51,7 +51,7 @@ describe('AllowedCommands (spec 012, Q6, Q8f)', () => {
 
     expect(
       allowed.getByText(
-        'Run without asking, inside the sandbox with no network. You can also add one by pressing Always allow when Claude asks.',
+        'Run without asking, inside the sandbox with no network. You can also add one by pressing Always allow when the agent asks.',
       ),
     ).toBeVisible();
     expect(await allowed.findByText('2')).toBeVisible();

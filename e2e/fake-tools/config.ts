@@ -64,6 +64,9 @@ export const orynxTicketsHubPort = 4382;
  */
 export const chatHubPort = 4378;
 
+/** The twelfth, for Codex beside Claude (spec 052): the only hub whose Codex is there, a fake signed in with ChatGPT. */
+export const codexHubPort = 4376;
+
 /** Where a spec tells a hub's fakes what Jira and GitHub hold, with `PUT /tools`: the port below the hub's. */
 export function controlPortFor(hubPort: number): number {
   return hubPort - 1;

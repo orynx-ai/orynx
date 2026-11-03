@@ -73,7 +73,7 @@ import {
 import { OrynxSkillListSchema, ReadySkillSchema, type OrynxSkillList, type ReadySkill } from './orynx-skills.ts';
 import { OrynxTicketSchema, type OrynxTicket } from './orynx-tickets.ts';
 import { SessionPortSchema, type SessionPort } from './ports.ts';
-import { StatusSchema, type AgentStatus, type Status, type User } from './status.ts';
+import { StatusSchema, type Status, type User } from './status.ts';
 import { StorageSchema, type Storage } from './storage.ts';
 import {
   SyncActivitySchema,
@@ -107,7 +107,8 @@ import {
 export interface StatusOverrides {
   version?: string;
   user?: Partial<User>;
-  agent?: Partial<AgentStatus>;
+  /** Override one agent and keep the other signed out. */
+  agents?: Partial<Status['agents']>;
   /** Override one integration and keep the others "not connected". */
   integrations?: Partial<Status['integrations']>;
 }
@@ -117,7 +118,7 @@ export function makeStatus(overrides: StatusOverrides = {}): Status {
   return StatusSchema.parse({
     version: overrides.version ?? '0.0.0-test',
     user: { name: null, ...overrides.user },
-    agent: { id: 'claude', connected: false, ...overrides.agent },
+    agents: { claude: { connected: false }, codex: { connected: false }, ...overrides.agents },
     integrations: {
       jira: notConnected,
       github: notConnected,
