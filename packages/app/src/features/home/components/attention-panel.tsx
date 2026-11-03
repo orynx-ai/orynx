@@ -41,7 +41,7 @@ import {
 import { defaultView, filterMenus, searchFor, showView, searchForTab, viewOf, type HomeView } from '../inbox-view.ts';
 import { useInbox, useInboxRules, useStartFromComposer, type HomeItem } from '../queries.ts';
 import { useAgentChoice } from './agent-picker.tsx';
-import { useNow } from '../use-now.ts';
+import { useNow } from '../../../words/use-now.ts';
 import { FixThis } from './fix-this.tsx';
 import { InboxToolbar } from './inbox-toolbar.tsx';
 import { OrderMenu } from './order-menu.tsx';
