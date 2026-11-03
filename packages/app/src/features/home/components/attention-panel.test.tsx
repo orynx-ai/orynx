@@ -999,4 +999,52 @@ describe('Slack and Discord tabs (spec 016)', () => {
     expect(tabNames(panel)).toEqual(['All 5', 'Jira 2', 'Pull requests 3']);
     expect(within(panel).getByRole('tab', { name: 'All 5' })).toHaveAttribute('aria-selected', 'true');
   });
+
+  it('AC-10, AC-11, AC-16: a message row reads its tool, who and where, how long it waited, and opens in its tool', async () => {
+    const dm = makeSlackItem({
+      id: 'slack:D0ARJUN01/1',
+      title: 'Pushed the rate-limit change, mind a look?',
+      subject: { kind: 'message', from: 'Arjun M.', channel: null, server: null },
+      waitingSince: '2026-10-17T07:00:00.000Z',
+    });
+    inboxWith([slackRow, dm, discordRow], { tools: { slack: synced, discord: synced } });
+    const { panel } = await openHome('/?inbox=slack');
+
+    const row = within(panel).getByRole('link', { name: slackRow.title }).closest('li');
+    if (row === null) throw new Error('No row');
+    expect(within(row).getByText('Slack')).toHaveClass('sr-only');
+    expect(within(row).getByText('Neha K. in #web-platform')).toBeVisible();
+    expect(within(row).getByText(/^No reply · \d+ h$/)).toBeVisible();
+    expect(within(panel).getByText('Arjun M. · direct message')).toBeVisible();
+    expect(within(panel).getByRole('link', { name: slackRow.title })).toHaveAttribute(
+      'href',
+      'https://acme.slack.com/archives/C024BE91L/p1700000000123456',
+    );
+  });
+
+  it('AC-21: Slack’s tab shows loading rows while its first sync runs', async () => {
+    inboxWith([], { tools: { slack: { state: 'syncing' } } });
+    await renderApp({ route: '/?inbox=slack' });
+    const panel = screen.getByRole('region', { name: 'Needs your attention' });
+
+    expect(await within(panel).findByRole('list')).toHaveAttribute('aria-busy', 'true');
+  });
+
+  it('AC-22: Slack’s tab says nobody is waiting on a reply when nobody is', async () => {
+    inboxWith([], { tools: { slack: synced } });
+    await renderApp({ route: '/?inbox=slack' });
+
+    expect(await screen.findByText('Nobody is waiting on a reply in Slack')).toBeVisible();
+  });
+
+  it('AC-23: a Slack that refused its token says so on its tab, and its last rows stay', async () => {
+    inboxWith([slackRow], {
+      tools: { slack: { state: 'failed', problem: { kind: 'rejected' }, lastSyncedAt: '2026-10-17T11:00:00.000Z' } },
+    });
+    const { panel } = await openHome('/?inbox=slack');
+
+    const reconnect = within(panel).getByRole('link', { name: 'Reconnect it in Settings' });
+    expect(reconnect.closest('p')?.textContent).toContain('Slack refused the saved token.');
+    expect(within(panel).getByRole('link', { name: slackRow.title })).toBeVisible();
+  });
 });

@@ -135,4 +135,9 @@ describe('sync activity words (spec 035, Q3)', () => {
     expect(tookText(1240)).toBe('1.2s');
     expect(tookText(0)).toBe('0.0s');
   });
+
+  it('016 AC-23: names Slack and Discord in their problems', () => {
+    expect(problemWords('slack', { kind: 'rejected' }).title).toBe('Slack refused Orynx’s saved token.');
+    expect(problemWords('discord', { kind: 'no_answer' }).title).toMatch(/^Discord /);
+  });
 });
