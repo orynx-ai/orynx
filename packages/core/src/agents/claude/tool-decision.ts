@@ -1,6 +1,6 @@
 import { lstat, readlink, realpath } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
-import { OrynxTicketKeySchema, type Permissions } from '@devhub/contracts';
+import { OrynxTicketKeySchema, SessionQuestionsSchema, type Permissions } from '@devhub/contracts';
 import type { AgentAsk, AgentReads, AgentRefusal } from '../agent-adapter.ts';
 import { decideCommand } from './command-decision.ts';
 import { previewEdit, type EditTool } from './edit-preview.ts';
@@ -9,8 +9,8 @@ import { isTicketToolName, ticketToolAccess, type TicketToolName } from '../../o
 /**
  * What Claude may do in a session: read, search, plan and edit inside the session's worktree (spec 011,
  * Q6), and run commands that Settings › Coding agent's rows and the allow list let through (spec 026) or
- * that you approve (spec 012), and use Orynx's own ticket tools (spec 037). Nothing else: no web, no other MCP tools,
- * no sub-agents and no questions. Claude Code's
+ * that you approve (spec 012), use Orynx's own ticket tools (spec 037), and ask you questions (spec 051). Nothing
+ * else: no web, no other MCP tools and no sub-agents. Claude Code's
  * `canUseTool` asks this file about every call it doesn't allow by itself, and gets one of three answers:
  * allow, ask you, or deny with the reason Claude is told.
  */
@@ -24,6 +24,7 @@ export const sessionToolsWithoutCommands = [
   'Write',
   'NotebookEdit',
   'TodoWrite',
+  'AskUserQuestion',
 ] as const;
 /** The only tools a session gets, passed to the SDK's `tools` so Claude never sees the others. */
 export const sessionTools = [...sessionToolsWithoutCommands, 'Bash'] as const;
@@ -71,6 +72,7 @@ const targets: Record<SessionTool, { field: string; access: 'read' | 'edit'; opt
   Write: { field: 'file_path', access: 'edit', optional: false },
   NotebookEdit: { field: 'notebook_path', access: 'edit', optional: false },
   TodoWrite: null,
+  AskUserQuestion: null,
   Bash: null,
 };
 
@@ -165,6 +167,12 @@ export async function decideToolUse(
   if (!isSessionTool(tool)) {
     return { behavior: 'deny', message: `${tool} isn't available in this session.`, refusal: null };
   }
+  // A question waits for you in every mode, and in an Ask session too: it changes nothing (spec 051, AC-17, AC-18).
+  if (tool === 'AskUserQuestion') {
+    const questions = SessionQuestionsSchema.safeParse(input['questions']);
+    if (!questions.success) return { behavior: 'deny', message: badQuestionMessage, refusal: null };
+    return { behavior: 'ask', ask: { kind: 'question', questions: questions.data } };
+  }
   if (tool === 'Bash') {
     const command = input['command'];
     if (context.readOnly !== true) return decideBash(input, context);
@@ -200,6 +208,9 @@ export async function decideToolUse(
   }
   return { behavior: 'allow' };
 }
+
+/** What Claude is told about a question Orynx can't show (spec 051, AC-19): Claude Code keys answers by its text. */
+const badQuestionMessage = 'Ask 1 to 4 questions, each once, with 2 to 4 choices that each have a label.';
 
 function unreadable(tool: string): ToolDecision {
   return { behavior: 'deny', message: `Orynx couldn't read the path in this ${tool} call.`, refusal: null };

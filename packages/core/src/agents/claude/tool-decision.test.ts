@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { defaultPermissions, permissionsFromMode, type PermissionMode } from '@devhub/contracts';
+import { defaultPermissions, permissionsFromMode, PermissionModeSchema, type PermissionMode } from '@devhub/contracts';
 import { decideToolUse, sessionTools, sessionToolsWithoutCommands } from './tool-decision.ts';
 
 let root: string;
@@ -47,8 +47,9 @@ const decide = (
 
 describe('sessionTools', () => {
   it('AC-20 (011 Q6, 012 Q2b): is exactly the tools a session gets, with commands and without', () => {
-    expect(sessionTools).toEqual(['Read', 'Glob', 'Grep', 'Edit', 'Write', 'NotebookEdit', 'TodoWrite', 'Bash']);
-    expect(sessionToolsWithoutCommands).toEqual(['Read', 'Glob', 'Grep', 'Edit', 'Write', 'NotebookEdit', 'TodoWrite']);
+    const tools = ['Read', 'Glob', 'Grep', 'Edit', 'Write', 'NotebookEdit', 'TodoWrite', 'AskUserQuestion'];
+    expect(sessionTools).toEqual([...tools, 'Bash']);
+    expect(sessionToolsWithoutCommands).toEqual(tools);
   });
 });
 
@@ -263,7 +264,6 @@ describe('decideToolUse', () => {
     ['WebFetch', { url: 'https://example.com', prompt: 'x' }],
     ['WebSearch', { query: 'x' }],
     ['Agent', { prompt: 'x', description: 'x' }],
-    ['AskUserQuestion', { questions: [] }],
     ['mcp__github__create_pull_request', { title: 'x' }],
   ] as const)('AC-5 (Q6): refuses %s, which a session doesn’t have, without a step', async (tool, input) => {
     const decision = await decide(tool, input);
@@ -273,6 +273,75 @@ describe('decideToolUse', () => {
   it('refuses a call whose path it can’t read', async () => {
     expect(await decide('Read', {})).toMatchObject({ behavior: 'deny', refusal: null });
     expect(await decide('Edit', { file_path: 42 })).toMatchObject({ behavior: 'deny', refusal: null });
+  });
+});
+
+describe("Claude's questions (spec 051)", () => {
+  const library = {
+    question: 'Which date library should we use?',
+    header: 'Library',
+    multiSelect: false,
+    options: [
+      { label: 'date-fns', description: 'Already a dependency' },
+      { label: 'Day.js', description: 'Smaller, a new dependency', preview: '<b>dayjs()</b>' },
+    ],
+  };
+  const asked = {
+    behavior: 'ask',
+    ask: {
+      kind: 'question',
+      questions: [
+        {
+          ...library,
+          options: [
+            { label: 'date-fns', description: 'Already a dependency' },
+            { label: 'Day.js', description: 'Smaller, a new dependency' },
+          ],
+        },
+      ],
+    },
+  };
+
+  it.each(PermissionModeSchema.options)(
+    'AC-1, AC-18, AC-21: asks you in %s, with the questions and their choices and no previews',
+    async (mode) => {
+      expect(await decide('AskUserQuestion', { questions: [library] }, mode)).toEqual(asked);
+    },
+  );
+
+  it('AC-17: an Ask session asks too, as a question changes nothing', async () => {
+    const decision = await decideToolUse(
+      'AskUserQuestion',
+      { questions: [library] },
+      { worktree, ...defaultPermissions, home: join(root, 'home'), allowedCommands: [], readOnly: true },
+    );
+    expect(decision).toEqual(asked);
+  });
+
+  it.each([
+    ['no question', []],
+    ['five questions', [1, 2, 3, 4, 5].map((n) => ({ ...library, question: `Question ${String(n)}?` }))],
+    ['one choice', [{ ...library, options: [{ label: 'date-fns', description: '' }] }]],
+    [
+      'an empty label',
+      [
+        {
+          ...library,
+          options: [
+            { label: '', description: 'x' },
+            { label: 'B', description: '' },
+          ],
+        },
+      ],
+    ],
+    ['the same question twice', [library, { ...library, header: 'Again' }]],
+    ['no list at all', 'Which library?'],
+  ])('AC-19: refuses %s without a step, and tells Claude how to ask', async (_case, questions) => {
+    expect(await decide('AskUserQuestion', { questions })).toEqual({
+      behavior: 'deny',
+      message: 'Ask 1 to 4 questions, each once, with 2 to 4 choices that each have a label.',
+      refusal: null,
+    });
   });
 });
 

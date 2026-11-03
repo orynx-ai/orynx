@@ -648,7 +648,7 @@ describe('running a session', () => {
         session: '0000000000000001',
         ticket: 'PROJ-1423',
         // Orynx's own server, with set_steps (spec 042).
-        loaded: { tools: 8, mcpServers: 1, plugins: 0 },
+        loaded: { tools: 9, mcpServers: 1, plugins: 0 },
       });
     });
   });

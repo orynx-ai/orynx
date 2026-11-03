@@ -156,7 +156,7 @@ describe('the Claude adapter', () => {
       type: 'started',
       sessionId: id,
       agentSessionId: 'b2c7e0f4-0000-4000-8000-000000000001',
-      loaded: { tools: 8, mcpServers: 0, plugins: 0 },
+      loaded: { tools: 9, mcpServers: 0, plugins: 0 },
     });
     expect(works(events)).toEqual([
       { kind: 'explore', file: 'src/a.ts' },
