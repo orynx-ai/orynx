@@ -38,7 +38,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 12: The session service runs each session on its own agent's adapter, with a sign-in gate per agent. Follow-ups, the quick read, the PR draft and review replies use it, and older sessions read as Claude (AC-5, AC-6, AC-22, AC-23)
       Check: pnpm test packages/core/src/sessions/session-service.test.ts packages/core/src/sessions/pull-requests.test.ts
       Files: packages/core/src/sessions/session-service.ts, session-service.test.ts, pull-requests.ts, pull-requests.test.ts
-- [ ] Task 13: The brief note for Codex (`AGENTS.md` and `CLAUDE.md`), and no `Co-Authored-By` line or "Claude" heading in a Codex session's commit and pull request (AC-22, Q8)
+- [x] Task 13: The note for Codex (`AGENTS.md` and `CLAUDE.md`, commands that stay in its sandbox, no push), and no `Co-Authored-By` line on a Codex session's commits (AC-22, Q8)
       Check: pnpm test packages/core/src/sessions/brief.test.ts packages/core/src/sessions/pull-request-text.test.ts
       Files: packages/core/src/sessions/brief.ts, brief.test.ts, pull-request-text.ts, pull-request-text.test.ts
 - [ ] Task 14: Routes and wiring: `GET /api/codex/login`, `POST /api/codex/login/check`, models by agent, `createServer` building the Codex adapter, and `DEVHUB_CODEX` in the server config (AC-1, AC-2, AC-4)

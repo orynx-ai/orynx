@@ -1352,10 +1352,10 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     const pull = record?.session.workOn === 'pull_request' ? (record.session.pullRequest?.number ?? null) : null;
     const note =
       branch !== null
-        ? sessionNote(branch, adapter.runsCommands, ticketNote, first, pull)
+        ? sessionNote(branch, adapter.runsCommands, ticketNote, first, pull, agent)
         : record?.session.review != null
-          ? reviewNote(record.startCommit !== null)
-          : askNote(record?.repository != null);
+          ? reviewNote(record.startCommit !== null, agent)
+          : askNote(record?.repository != null, agent);
     // Orynx's ticket tools, made in this session's name; an Ask session gets the reading ones only (spec 037).
     const tools =
       options.tickets === undefined || record === null

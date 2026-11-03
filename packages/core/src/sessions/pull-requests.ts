@@ -567,7 +567,7 @@ export function createPullRequests(options: PullRequestsOptions): PullRequests {
     if (added === null) return ending({ result: 'failed', problem: { kind: 'commit_failed' } }, 'secret_check');
     const secret = firstSecretFile(added);
     if (secret !== null) return ending({ result: 'failed', problem: { kind: 'secret', path: secret } }, 'secret');
-    const committed = await git.commit(worktree, commitMessage(message));
+    const committed = await git.commit(worktree, commitMessage(message, record.session.agent));
     if (!committed.ok)
       return ending({ result: 'failed', problem: commitProblems[committed.problem] }, committed.problem);
     // A session on your pull request's own branch has a detached worktree, whose HEAD goes to it (spec 031).
@@ -635,7 +635,7 @@ export function createPullRequests(options: PullRequestsOptions): PullRequests {
     if (added === null) return ending(failed({ kind: 'commit_failed' }), 'secret_check');
     const secret = firstSecretFile(added);
     if (secret !== null) return ending(failed({ kind: 'secret', path: secret }), 'secret');
-    const committed = await git.commit(worktree, commitMessage(title));
+    const committed = await git.commit(worktree, commitMessage(title, record.session.agent));
     if (!committed.ok) return ending(failed(commitProblems[committed.problem]), committed.problem);
     const pushed = await git.push(worktree, branch);
     if (!pushed.ok) return ending(failed(pushProblems[pushed.problem]), `push_${pushed.problem}`);

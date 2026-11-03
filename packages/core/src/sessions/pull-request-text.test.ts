@@ -174,6 +174,10 @@ describe('commit messages (spec 014, Q5, Q7)', () => {
     );
   });
 
+  it("052 Q8: a Codex session's commit has your words alone, with no co-author line", () => {
+    expect(commitMessage('PROJ-1423: Add bulk archive', 'codex')).toBe('PROJ-1423: Add bulk archive');
+  });
+
   it('AC-17: asks Claude for one line about what is new since the last push', () => {
     const prompt = pushPrompt({
       ticket,

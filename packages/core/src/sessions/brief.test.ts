@@ -440,3 +440,36 @@ describe('a thread in the brief (spec 016, C)', () => {
     expect(body).toContain(`${'x'.repeat(1000)} 49`);
   });
 });
+
+describe("Codex's note (spec 052)", () => {
+  const rows = { network: 'allow', unsandboxed: 'allow', push: 'allow', pullRequest: 'allow' } as const;
+
+  it('AC-7: tells Codex to read AGENTS.md or CLAUDE.md, and never to leave its sandbox, which has no network', () => {
+    const note = sessionNote('feat/PROJ-1423', true, true, rows, null, 'codex');
+    expect(note).toContain('If the repository has an AGENTS.md or a CLAUDE.md, read it first.');
+    expect(note).toContain('such as a package install or git fetch, fails there');
+    expect(note).not.toContain('dangerouslyDisableSandbox');
+    expect(note).not.toContain('runs outside the sandbox');
+  });
+
+  it("AC-22: tells Codex not to push or open the pull request, whatever the rows say, since its sandbox can't", () => {
+    const note = sessionNote('feat/PROJ-1423', true, true, rows, null, 'codex');
+    expect(note).not.toContain('git push origin feat/PROJ-1423');
+    expect(note).toBe(
+      sessionNote('feat/PROJ-1423', true, true, { ...rows, push: 'never', pullRequest: 'never' }, null, 'codex'),
+    );
+  });
+
+  it("Claude's note is as it was", () => {
+    expect(sessionNote('feat/PROJ-1423', true, true, rows)).toContain(
+      'If the repository has a CLAUDE.md, read it first.',
+    );
+    expect(sessionNote('feat/PROJ-1423', true, true, rows)).toContain('dangerouslyDisableSandbox');
+  });
+
+  it('an Ask or a review on Codex names AGENTS.md too', () => {
+    expect(askNote(true, 'codex')).toContain('If the repository has an AGENTS.md or a CLAUDE.md, read it first.');
+    expect(reviewNote(true, 'codex')).toContain("the repository's AGENTS.md or CLAUDE.md if it has one");
+    expect(askNote(true)).toContain('If the repository has a CLAUDE.md, read it first.');
+  });
+});

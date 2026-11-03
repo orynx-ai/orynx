@@ -51,7 +51,7 @@ Correct these now, or the work goes ahead on them.
 - The composer's words name the picked agent: "Send to Codex", "Ask Codex about your code…", "Review with Codex".
 - Settings words that cover both agents say "the agent": "What the agent can do without asking", and "Anything the agent downloads runs on your computer."
 - Claude's own card, its login check and Orynx's name don't change.
-- What a Codex session writes to GitHub doesn't say Claude. The commit message's `Co-Authored-By: Claude` line and the pull request's "Claude's summaries" heading name the session's agent (Q8).
+- What a Codex session writes to GitHub doesn't say Claude. Its commits carry no `Co-Authored-By` line (Q8). The pull request's body says nothing of the agent: the "Claude's summaries" heading is only in what the agent reads to draft it (changed while building, 3 Nov 2026).
 
 ## Goal
 

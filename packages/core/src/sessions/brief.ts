@@ -1,4 +1,4 @@
-import { isOrynxKey, type Permissions } from '@devhub/contracts';
+import { isOrynxKey, type AgentId, type Permissions } from '@devhub/contracts';
 import type { AgentBrief } from '../agents/agent-adapter.ts';
 import type { JiraIssueDetail } from '../integrations/jira/client.ts';
 
@@ -294,6 +294,13 @@ function pullLines(branch: string, number: string, commands: boolean, { push }: 
   ];
 }
 
+/** The repository's own instructions for the agent: Codex reads AGENTS.md as well (spec 052). */
+function handbook(agent: AgentId): string {
+  return agent === 'codex'
+    ? 'If the repository has an AGENTS.md or a CLAUDE.md, read it first.'
+    : 'If the repository has a CLAUDE.md, read it first.';
+}
+
 /**
  * Added to Claude Code's own system prompt (011 Q5). Where Claude can run commands, the last sentences say
  * how they run (012 Q8g); where the sandbox can't run, that it can't (012 Q2b). Without a ticket, Claude does
@@ -307,24 +314,37 @@ export function sessionNote(
   branch: string,
   commands: boolean,
   ticket = true,
-  rows = askFirst,
+  given = askFirst,
   /** Your pull request's number, when the worktree is its own branch (spec 031): Claude pushes to it only as `push` says. */
   pull: number | null = null,
+  /** Codex (spec 052): its commands never leave its sandbox, which has no network, so it pushes nothing. */
+  agent: AgentId = 'claude',
 ): string {
-  const ending = commands
-    ? [
-        'You can run commands in the worktree.',
-        "They run in a sandbox with no network, and some wait for the user's approval.",
-        // Each row lets its kind out of the sandbox, so Claude shouldn't give up on GitHub or an install (spec 026).
-        `A command that reaches the network, such as gh, curl, git fetch or a package install, runs outside the sandbox${once(rows.network)}.`,
-        `If the sandbox stops another command, run it again with dangerouslyDisableSandbox${once(rows.unsandboxed)}.`,
-        "Run the project's tests and checks before you finish.",
-        "When you're done, summarise what you changed and which checks you ran, in a few sentences.",
-      ]
-    : [
-        "You can't run commands on this computer, so say which ones you'd run to check your work.",
-        "When you're done, summarise what you changed in a few sentences.",
-      ];
+  const codex = agent === 'codex';
+  const rows = codex ? { ...given, push: 'never' as const, pullRequest: 'never' as const } : given;
+  const ending =
+    codex && commands
+      ? [
+          'You can run commands in the worktree.',
+          "They run in a sandbox with no network that writes only in the worktree, and some wait for the user's approval.",
+          'A command that needs the network, such as a package install or git fetch, fails there, so say in your summary which ones the user should run.',
+          "Run the project's tests and checks before you finish.",
+          "When you're done, summarise what you changed and which checks you ran, in a few sentences.",
+        ]
+      : commands
+        ? [
+            'You can run commands in the worktree.',
+            "They run in a sandbox with no network, and some wait for the user's approval.",
+            // Each row lets its kind out of the sandbox, so Claude shouldn't give up on GitHub or an install (spec 026).
+            `A command that reaches the network, such as gh, curl, git fetch or a package install, runs outside the sandbox${once(rows.network)}.`,
+            `If the sandbox stops another command, run it again with dangerouslyDisableSandbox${once(rows.unsandboxed)}.`,
+            "Run the project's tests and checks before you finish.",
+            "When you're done, summarise what you changed and which checks you ran, in a few sentences.",
+          ]
+        : [
+            "You can't run commands on this computer, so say which ones you'd run to check your work.",
+            "When you're done, summarise what you changed in a few sentences.",
+          ];
   const number = pull === null ? '' : `#${String(pull)}`;
   return [
     pull === null
@@ -333,7 +353,7 @@ export function sessionNote(
     ticket ? 'Make the change the ticket asks for.' : 'Do what the user asks in the brief.',
     // The steps the user sees follow the work (spec 042).
     "Orynx shows the user this session's steps. When the work changes, such as a run that needs a fix, call set_steps with the whole list, the step you're on and why.",
-    'If the repository has a CLAUDE.md, read it first.',
+    handbook(agent),
     // A detached worktree has no branch for `git push origin <branch>` to send (spec 031).
     ...(pull === null ? gitLines(branch, commands, rows) : pullLines(branch, number, commands, rows)),
     ...ending,
@@ -345,13 +365,13 @@ export function sessionNote(
  * An Ask session's note (spec 026): Claude answers from the folder as it is, and changes nothing. With no folder
  * (spec 031), it answers from the brief and the files it names.
  */
-export function askNote(folder = true): string {
+export function askNote(folder = true, agent: AgentId = 'claude'): string {
   return [
     ...(folder
       ? [
           "You're answering in the user's own folder, as it is: this is an Ask session.",
           "You can read and search the files here. You can't change files or run commands, and nothing you try will be allowed.",
-          'If the repository has a CLAUDE.md, read it first.',
+          handbook(agent),
         ]
       : [
           "You're answering from the brief alone: this is an Ask session with no folder.",
@@ -366,11 +386,11 @@ export function askNote(folder = true): string {
  * The note for a review session (spec 050): Claude reviews a teammate's pull request in a checkout of its head, or
  * from the diff alone, leaves line comments with `review_comment`, and ends with a summary and its verdict.
  */
-export function reviewNote(checkout: boolean): string {
+export function reviewNote(checkout: boolean, agent: AgentId = 'claude'): string {
   return [
     "You're reviewing a teammate's pull request: this is a review session.",
     checkout
-      ? "The folder is a checkout of the pull request's head. Read the code around each change, and the repository's CLAUDE.md if it has one."
+      ? `The folder is a checkout of the pull request's head. Read the code around each change, and the repository's ${agent === 'codex' ? 'AGENTS.md or CLAUDE.md' : 'CLAUDE.md'} if it has one.`
       : "You have the pull request's diff alone, in the brief.",
     "You can read and search. You can't change files or run commands, and nothing you try will be allowed.",
     'Comment only on what matters: bugs, risk, missing tests, unclear code.',
