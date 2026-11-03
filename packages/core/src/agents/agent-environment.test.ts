@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { agentEnvironment, gitEnvironment } from './agent-environment.ts';
+import { agentEnvironment, codexEnvironment, gitEnvironment } from './agent-environment.ts';
 
 describe('agentEnvironment', () => {
   it.each([
@@ -160,5 +160,44 @@ describe('gitEnvironment', () => {
 
   it('AC-20: never asks for a password, even when the shell says it may', () => {
     expect(gitEnvironment({ GIT_TERMINAL_PROMPT: '1' })).toEqual({ GIT_TERMINAL_PROMPT: '0' });
+  });
+});
+
+describe('codexEnvironment (spec 052)', () => {
+  const shell = {
+    HOME: '/Users/you',
+    PATH: '/usr/bin:/bin',
+    LANG: 'en_GB.UTF-8',
+    https_proxy: 'http://proxy:8080',
+    OPENAI_API_KEY: 'fake-openai-key',
+    OPENAI_BASE_URL: 'https://gateway.example',
+    CODEX_HOME: '/Users/you/.codex',
+    CODEX_API_KEY: 'fake-codex-key',
+    ANTHROPIC_API_KEY: 'fake-anthropic-key',
+    CLAUDE_CONFIG_DIR: '/tmp/claude',
+    CLAUDE_CODE_USE_BEDROCK: '1',
+    AWS_ACCESS_KEY_ID: 'fake',
+    DEVHUB_GITHUB_TOKEN: 'fake-github-token',
+    DEVHUB_HOME: '/Users/you/.devhub',
+    // What a Codex shell sets for the commands it runs, as when Orynx is started from one.
+    CODEX_SANDBOX: 'seatbelt',
+    CODEX_THREAD_ID: 'thread-1',
+  };
+
+  it("AC-25: keeps the shell, the language, proxies and Codex's own login and home, and nothing of Claude's", () => {
+    expect(codexEnvironment(shell)).toEqual({
+      HOME: '/Users/you',
+      PATH: '/usr/bin:/bin',
+      LANG: 'en_GB.UTF-8',
+      https_proxy: 'http://proxy:8080',
+      OPENAI_API_KEY: 'fake-openai-key',
+      OPENAI_BASE_URL: 'https://gateway.example',
+      CODEX_HOME: '/Users/you/.codex',
+      CODEX_API_KEY: 'fake-codex-key',
+    });
+  });
+
+  it("AC-25: Claude's environment gets none of Codex's", () => {
+    expect(Object.keys(agentEnvironment(shell)).filter((name) => /^(OPENAI_|CODEX_)/.test(name))).toEqual([]);
   });
 });

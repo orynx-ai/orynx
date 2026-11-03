@@ -14,7 +14,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 4: Finding Codex (`DEVHUB_CODEX` or `PATH`, version 0.166 or later) and its login through `account/read`, cached as Claude's is (AC-1, AC-2)
       Check: pnpm test packages/core/src/agents/codex/codex-program.test.ts packages/core/src/agents/codex/codex-login.test.ts
       Files: packages/core/src/agents/codex/codex-program.ts, codex-program.test.ts, codex-login.ts, codex-login.test.ts
-- [ ] Task 5: The launch: `-c` overrides (the sandbox profile with `DEVHUB_HOME` denied, no network, no MCP servers, no hooks, analytics off) and `untrusted`. Codex's own environment allow list (AC-15, AC-16, AC-25)
+- [x] Task 5: The launch: `-c` overrides (the sandbox profile with `DEVHUB_HOME` denied, no network, no MCP servers, no hooks, analytics off) and `untrusted`. Codex's own environment allow list (AC-15, AC-16, AC-25)
       Check: pnpm test packages/core/src/agents/codex/launch.test.ts packages/core/src/agents/agent-environment.test.ts
       Files: packages/core/src/agents/codex/launch.ts, launch.test.ts, packages/core/src/agents/agent-environment.ts, agent-environment.test.ts
 - [ ] Task 6: Items to steps: reads and searches, the plan, edits, commands with output, the last message, usage (pure) (AC-7)

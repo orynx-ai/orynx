@@ -61,7 +61,7 @@ export interface SandboxPlaces {
 }
 
 /** Where the OS keeps the keychain's own files. */
-function keychainFolder(platform: NodeJS.Platform, home: string): string {
+export function keychainFolder(platform: NodeJS.Platform, home: string): string {
   return platform === 'darwin' ? join(home, 'Library', 'Keychains') : join(home, '.local', 'share', 'keyrings');
 }
 
