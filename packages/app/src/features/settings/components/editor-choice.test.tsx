@@ -42,7 +42,11 @@ describe('EditorChoice', () => {
       expect(within(editors()).getByRole('radio', { name: 'VS Code' })).toBeEnabled();
     });
     await user.click(within(editors()).getByRole('radio', { name: 'Cursor' }));
-    expect(within(editors()).getByRole('radio', { name: 'Cursor' })).toBeChecked();
+    // The pick renders a tick after the click (onMutate awaits cancelQueries). The GET here always answers
+    // VS Code, so only the pick can check Cursor.
+    await waitFor(() => {
+      expect(within(editors()).getByRole('radio', { name: 'Cursor' })).toBeChecked();
+    });
     await waitFor(() => {
       expect(sent).toEqual([{ editor: 'cursor' }]);
     });

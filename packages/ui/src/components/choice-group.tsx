@@ -31,7 +31,6 @@ export function ChoiceGroup({ legend, help, error, multiple = false, className, 
   return (
     <fieldset
       // ARIA in HTML allows `radiogroup` on a fieldset; `group`, its own role, can't carry aria-invalid.
-       
       role={multiple ? undefined : 'radiogroup'}
       aria-labelledby={legendId}
       aria-describedby={message === undefined ? undefined : messageId}
