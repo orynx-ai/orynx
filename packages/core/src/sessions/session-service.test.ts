@@ -2879,10 +2879,11 @@ describe('deleting old sessions on a schedule (spec 047, D)', () => {
     try {
       await settings.update((current) => ({ ...current, agent: { ...current.agent, deleteSessionsAfterDays: 30 } }));
       events.publish({ type: 'settings.changed' });
+      // The session goes before the run reports its count, so wait for both.
       await vi.waitFor(async () => {
         expect(await service.get(id)).toBeNull();
+        expect(cleaned).toHaveLength(1);
       });
-      expect(cleaned).toHaveLength(1);
     } finally {
       schedule.stop();
     }
