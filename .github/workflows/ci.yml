@@ -79,6 +79,7 @@ jobs:
           - { name: server, dir: apps/server }
           - { name: web, dir: apps/web }
           - { name: desktop, dir: apps/desktop }
+          - { name: demo, dir: apps/demo }
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
