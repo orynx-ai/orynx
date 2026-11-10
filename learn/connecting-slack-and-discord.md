@@ -1,4 +1,4 @@
-<!-- learn-sources: packages/core/src/integrations/slack/client.ts packages/core/src/integrations/slack/connection.ts packages/core/src/integrations/discord/client.ts packages/core/src/integrations/discord/connection.ts packages/core/src/inbox/inbox-service.ts packages/core/src/sessions/thread-reply.ts packages/core/src/threads/thread-preview.ts packages/contracts/src/threads.ts -->
+<!-- learn-sources: packages/core/src/integrations/slack/client.ts packages/core/src/integrations/slack/connection.ts packages/core/src/integrations/discord/client.ts packages/core/src/integrations/discord/connection.ts packages/core/src/inbox/inbox-service.ts packages/core/src/sessions/thread-reply.ts packages/core/src/threads/thread-preview.ts packages/contracts/src/threads.ts packages/core/src/chat-answers/chat-answers.ts packages/core/src/chat-answers/reply.ts packages/core/src/chat-answers/words.ts -->
 
 # Slack and Discord: who waits on your reply, threads as context, and the one reply
 
@@ -44,5 +44,27 @@ At Send, `context-reader.ts` reads the whole thread with the tool's token and `b
 
 Once a session's pull request is open and its context holds a thread, the Session screen offers "Tell the thread". Only
 `POST /api/sessions/:id/thread-reply`, on Post reply, writes: `thread-reply.ts` posts to the first thread chip (Slack
-as you, Discord as your bot, as a Reply that pings nobody) and the session keeps where it went. Nothing else is ever
-written to either tool.
+as you, Discord as your bot, as a Reply that pings nobody) and the session keeps where it went.
+
+## Claude's questions in a DM (spec 057)
+
+With Settings › Notifications' "Answer Claude's questions from chat" on, `chat-answers.ts` sends each waiting call to
+you, as the session service's `onChange` sees it arrive:
+
+- **Discord**: the bot you connected opens its DM with your saved user ID (`openDm`, `sendDm`, `dmAfter`, over REST:
+  a bot reads its own DMs without the gateway).
+- **Slack**: a message your own token posts never notifies you, so Slack needs its bot's token too (`xoxb-`, with
+  `chat:write`, `im:write` and `im:history`). Settings › Connections › Slack checks it with `auth.test`, a bot's token
+  in your workspace, and keeps it in the keychain as `slack_bot`; `settings.json` keeps only its workspace.
+- **What goes**: a call with one question goes with its choices numbered, and your reply answers it. Two or more
+  questions, and any approval, only ping: they say to answer in Orynx and are never read, so nothing in chat ever
+  allows a command (Q1).
+- **Your reply**: every 15 seconds while a question waits, even with no Orynx page open, Orynx reads the thread (Slack)
+  or the DM after its message (Discord, one cursor for every question there). Only your own user ID counts.
+  `reply.ts` reads a number, several numbers, `skip` or any text (Other); a reply it can't take gets a line asking
+  again. The answer goes through the Session screen's own `respond()` with `from`, which checks it against the question
+  and lets only the first answer count, so the step says "You answered from Discord".
+- **The ends**: the session's `answered` report, which now names its call, says whether you answered in Orynx (`by:
+'you'`) or the session stopped, and Orynx says so in the thread. A send that fails marks the waiting step `unsent`.
+
+These DMs and their short replies, and the one thread reply above, are all Orynx ever writes to either tool.

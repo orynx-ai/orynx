@@ -142,8 +142,8 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 ## Docs and review
 
-- [ ] Task 42: Learn pages and skills: answering from chat and the notification, the Slack bot, review comments, the standup, read ahead, spend; the writes table gains the DMs
+- [x] Task 42: Learn pages and skills: answering from chat and the notification, the Slack bot, review comments, the standup, read ahead, spend; the writes table gains the DMs
       Check: pnpm gate learn-freshness; pnpm gate handbook-size
-      Files: learn/notifications.md, learn/connecting-slack-and-discord.md, learn/sessions-and-worktrees.md, learn/desktop-app.md, .claude/skills/integration-adapter/SKILL.md, .claude/skills/agent-runtime/SKILL.md
+      Files: learn/notifications.md, learn/connecting-slack-and-discord.md, learn/sessions-and-worktrees.md, learn/desktop-app.md, learn/the-inbox.md, .claude/skills/integration-adapter/SKILL.md, .claude/skills/agent-runtime/SKILL.md
 - [ ] Task 43: STOP and run /review
       Check: the review stamp matches the branch (pnpm review:stamp verify)
