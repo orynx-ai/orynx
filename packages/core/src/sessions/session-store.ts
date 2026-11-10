@@ -95,6 +95,8 @@ export type ListedSession = SessionSummary & {
   discardedAt?: string | null;
   pullRequest?: string | null;
   reviewing?: string | null;
+  /** When Orynx started it to read a review request ahead (spec 057, D); null for any other session. */
+  readAheadAt?: string | null;
 };
 
 /** A pull request by its repository and number, as `acme/web-app#2836`, in one case, since GitHub's names have none. */
@@ -164,6 +166,7 @@ export function listedSession(session: Session): ListedSession {
     agent,
     pullRequest,
     reviewing,
+    readAheadAt: session.readAhead ? session.startedAt : null,
   };
 }
 

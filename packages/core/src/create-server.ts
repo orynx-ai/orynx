@@ -26,6 +26,7 @@ import { createNotificationSettingsService } from './notifications/notification-
 import { createChatAnswers, type DesktopQuestions } from './chat-answers/chat-answers.ts';
 import { pullsWithNewThreads } from './sessions/pull-changes.ts';
 import { createStandupService } from './standup/standup-service.ts';
+import { createReadAhead, type ReadAheadService } from './read-ahead/read-ahead-service.ts';
 import { createPreferencesService } from './preferences/preferences-service.ts';
 import { createRepositoryService, FolderRejectedError } from './repositories/repository-service.ts';
 import { createSkillStore, orynxSkillsFolder, SkillRejectedError } from './skills/skill-store.ts';
@@ -410,6 +411,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
   // The session service is made below; until then a sync has no sessions to watch (spec 047).
   let watchPulls: () => Promise<void> = () => Promise.resolve();
   let threadsChanged: (pulls: readonly string[]) => Promise<void> = () => Promise.resolve();
+  let readAhead: ReadAheadService | null = null;
   const inbox = createInboxService({
     cache,
     settings,
@@ -422,6 +424,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     sessions,
     preferences,
     events,
+    waitingToRead: () => readAhead?.waiting() ?? [],
     onProblem: (tool, problem) => {
       app.log.warn({ tool, problem }, 'The inbox sync could not read this tool');
     },
@@ -435,6 +438,8 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
         watchPulls().catch((error: unknown) => {
           app.log.error(error, 'Watching the sessions’ pull requests failed');
         });
+        // A review asked of you may be read ahead (spec 057, D).
+        readAhead?.synced(after);
         // A reviewer's new thread reaches the session's Review comments tab (spec 057, AC-24).
         threadsChanged(pullsWithNewThreads(before, after)).catch((error: unknown) => {
           app.log.error(error, 'Telling sessions about new review comments failed');
@@ -635,6 +640,16 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
   });
   watchPulls = () => sessionService.watchPulls();
   threadsChanged = (pulls) => sessionService.threadsChanged(pulls);
+  readAhead = createReadAhead({
+    preferences,
+    sessions: { list: () => sessions.list(), start: (request, start) => sessionService.start(request, start) },
+    events,
+    onError: (error) => {
+      app.log.error(error, 'Reading a review request ahead failed');
+    },
+  });
+  const reading = readAhead;
+  app.addHook('onClose', () => reading.close());
   // Delete old sessions runs on its own only where syncs do (spec 047, D): never in a test by surprise.
   const cleanup =
     options.autoSync === true

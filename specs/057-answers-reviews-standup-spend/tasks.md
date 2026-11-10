@@ -106,9 +106,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 31: The read-ahead queue as a pure function: one at a time, fewer than 2 working, 5 a day, oldest first, withdrawn dropped (AC-37, AC-38, AC-39, AC-40)
       Check: pnpm test packages/core/src/read-ahead/queue.test.ts
       Files: packages/core/src/read-ahead/queue.ts, the test
-- [ ] Task 32: The read-ahead service: new requests after turning on start a review, the queue moves when a session ends or the setting changes, and Home's rows carry `readAhead` (AC-35, AC-36, AC-37, AC-38, AC-40, AC-41)
+- [x] Task 32: The read-ahead service: new requests after turning on start a review, the queue moves when a session ends or the setting changes, and Home's rows carry `readAhead` (AC-35, AC-36, AC-37, AC-38, AC-40, AC-41)
       Check: pnpm test packages/core/src/read-ahead/read-ahead-service.test.ts
-      Files: packages/core/src/read-ahead/read-ahead-service.ts, packages/core/src/inbox/inbox-service.ts, packages/core/src/sessions/session-service.ts, packages/core/src/create-server.ts, the test
+      Files: packages/core/src/read-ahead/read-ahead-service.ts, packages/core/src/inbox/inbox-service.ts, packages/core/src/inbox/rules.ts, packages/core/src/sessions/session-service.ts, packages/core/src/sessions/session-store.ts, packages/core/src/create-server.ts, the test
 - [ ] Task 33: Settings › Coding agent: "Read review requests ahead" (AC-34)
       Check: pnpm test packages/app/src/features/settings/components/coding-agent-panel.test.tsx
       Files: packages/app/src/features/settings/components/coding-agent-panel.tsx, the test

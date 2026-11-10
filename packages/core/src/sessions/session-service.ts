@@ -183,7 +183,8 @@ export interface SessionService {
   /** Runs a server Claude started again in its tab (spec 042); one started any other way can't be. */
   restartPort(id: string, port: number): Promise<PortActionAnswer['result'] | 'not_found'>;
   /** Ship's start on a ticket, or the composer's with your message and its chips (spec 015). */
-  start(request: StartSessionRequest): Promise<StartSessionAnswer>;
+  /** `readAhead`: Orynx starts a review itself, as Read review requests ahead does (spec 057, D). */
+  start(request: StartSessionRequest, options?: { readAhead?: boolean }): Promise<StartSessionAnswer>;
   /** The session as the Session screen shows it; null when there's none with this id. */
   get(id: string): Promise<Session | null>;
   /** Stop Claude (AC-9). A session that isn't working stays as it is. */
@@ -1796,7 +1797,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
    * the ticket, signed out, three working, the folder (Q7), then the chips as Jira and GitHub give them (AC-21).
    * Only then is the record made, with the brief its run starts from (AC-4, AC-20).
    */
-  async function composeNow(request: ComposerStart): Promise<StartSessionAnswer> {
+  async function composeNow(request: ComposerStart, readAhead = false): Promise<StartSessionAnswer> {
     const key = ticketKeyOf(request);
     const ask = request.mode === 'ask';
     // A ticket's live session stops a Build on it, unless you asked for another (spec 047); an Ask only reads, so it
@@ -1906,7 +1907,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
                 posted: [],
               },
         threadReply: null,
-        readAhead: false,
+        readAhead,
       },
       repository: folder === null ? null : { id: folder.id, path: folder.path },
       // An Ask session makes no worktree: Claude reads the folder itself (spec 026), or an empty one (spec 031). A
@@ -2122,12 +2123,12 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     postThreadReply: (id, text) => threadReplies.post(id, text),
     dismissThreadReply: (id) => threadReplies.dismiss(id),
 
-    start(request) {
+    start(request, { readAhead = false } = {}) {
       // Starts on one ticket go one at a time, from Ship or the composer; so do composer starts with no ticket.
       const key = 'ticketKey' in request ? request.ticketKey : (ticketKeyOf(request) ?? 'composer');
       const waiting = starting.get(key);
       const turn = (waiting ?? Promise.resolve()).then(() =>
-        'ticketKey' in request ? startNow(request) : composeNow(request),
+        'ticketKey' in request ? startNow(request) : composeNow(request, readAhead),
       );
       starting.set(
         key,

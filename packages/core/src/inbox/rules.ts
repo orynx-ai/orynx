@@ -17,7 +17,10 @@ export interface InboxSources {
   /** Slack's and Discord's messages waiting on your reply (spec 016); none when left out. */
   slack?: readonly SlackMessageRecord[];
   discord?: readonly DiscordMessageRecord[];
-  sessions: readonly SessionSummary[];
+  /** With the pull request each reviews, as `pullKey` names it (spec 050), for a review row's read ahead (spec 057). */
+  sessions: readonly (SessionSummary & { reviewing?: string | null })[];
+  /** Review requests waiting to be read ahead (spec 057, D), as `owner/name#number`; none when left out. */
+  waitingToRead?: readonly string[];
 }
 
 /** How long a message must wait before it's a row (Settings › Inbox rules, spec 016), and the time now. */
@@ -162,6 +165,24 @@ export function inboxItems(sources: InboxSources, rules: InboxRules, wait?: Repl
         });
       }
     }
+  }
+
+  // A review asked of you says whether Claude reads it ahead, or has (spec 057, D): its live review, or its turn.
+  const waitingToRead = new Set((sources.waitingToRead ?? []).map((id) => id.toLowerCase()));
+  for (const record of sources.github) {
+    const row = rows.get(`github:${record.id}`);
+    if (row?.reason.kind !== 'review_requested') continue;
+    const key = record.id.toLowerCase();
+    const review = sources.sessions.find(
+      (session) => session.reviewing === key && session.state !== 'stopped' && session.state !== 'pr_closed',
+    );
+    const readAhead =
+      review === undefined
+        ? waitingToRead.has(key)
+          ? ({ state: 'waiting', sessionId: null } as const)
+          : null
+        : ({ state: review.state === 'done' ? 'ready' : 'reading', sessionId: review.id } as const);
+    rows.set(row.id, { ...row, readAhead });
   }
 
   // An issue with a live session opens that session, so Home says Open instead of Build (spec 011, AC-15).

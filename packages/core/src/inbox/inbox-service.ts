@@ -106,6 +106,8 @@ export interface InboxServiceOptions {
    */
   sprint?: { sync(): Promise<SprintSyncOutcome>; forget(): void };
   sessions: SessionStore;
+  /** Review requests waiting to be read ahead (spec 057, D). */
+  waitingToRead?: () => readonly string[];
   preferences: { read(): Promise<Preferences> };
   events: EventBus;
   /** Told about each tool's failed sync, for the terminal. Never holds a token. */
@@ -450,7 +452,8 @@ export function createInboxService(options: InboxServiceOptions): InboxService {
         options.sessions.list(),
         options.preferences.read(),
       ]);
-      const items = inboxItems({ ...found, sessions }, preferences.inboxRules, {
+      const waitingToRead = options.waitingToRead?.() ?? [];
+      const items = inboxItems({ ...found, sessions, waitingToRead }, preferences.inboxRules, {
         waitMs: preferences.replyWaitMinutes * 60_000,
         now: now(),
       });
