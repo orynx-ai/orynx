@@ -31,7 +31,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 9: The hub's desktop channel: send a question to the desktop app over its port, take its reply, say `desktopReplies` in status, and share the page's "should this alert" rule through contracts (AC-15)
       Check: pnpm test apps/server/src/desktop-questions.test.ts packages/contracts/src/notifications.test.ts packages/app/src/features/notifications/alerts.test.ts
       Files: apps/server/src/desktop-questions.ts, apps/server/src/main.ts, packages/contracts/src/notification-delivery.ts, packages/contracts/src/desktop-questions.ts, packages/contracts/src/status.ts, packages/core/src/chat-answers/chat-answers.ts, packages/app/src/features/notifications/quiet.ts, the tests
-- [ ] Task 10: The desktop app shows the question with a reply box on macOS and posts the reply back (AC-15)
+- [x] Task 10: The desktop app shows the question with a reply box on macOS and posts the reply back (AC-15)
       Check: pnpm test apps/desktop/src/questions.test.ts
       Files: apps/desktop/src/questions.ts, apps/desktop/src/main.ts, the test
 - [ ] Task 11: api-client: Slack's bot token, and `chatAnswers` in the notification settings (AC-12, AC-14)

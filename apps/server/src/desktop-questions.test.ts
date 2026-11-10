@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { DesktopQuestionReplySchema, HubQuestionCommandSchema } from '@devhub/contracts';
+// The desktop app's own copy of the messages: it imports no @devhub package (spec 027).
+import { QuestionCommandSchema, QuestionReplySchema } from '../../desktop/src/questions.ts';
 import { desktopQuestions } from './desktop-questions.ts';
 import { desktopUpdateHost, type ParentPort } from './desktop-updates.ts';
 
@@ -63,5 +66,18 @@ describe("Claude's questions in the desktop app (spec 057, AC-15)", () => {
 
     expect(replies).toEqual(['skip']);
     expect(logged).toEqual([]);
+  });
+
+  it("keeps the desktop app's copy of the messages in step with the hub's", () => {
+    const { port, sent } = fakePort();
+    const questions = desktopQuestions(port);
+    questions.show(question);
+    questions.withdraw(question.id);
+
+    for (const command of sent) {
+      expect(QuestionCommandSchema.parse(command)).toEqual(HubQuestionCommandSchema.parse(command));
+    }
+    const reply = { type: 'question-reply', id: question.id, text: '2' };
+    expect(DesktopQuestionReplySchema.parse(QuestionReplySchema.parse(reply))).toEqual(reply);
   });
 });
