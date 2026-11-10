@@ -1,4 +1,4 @@
-// Design: docs/design/screens/home.html — page bar (Synced line and Refresh), greeting (the waiting banner floats from the shell: the user's call, 20 Oct 2026), composer with + Add context and its pickers, quick starts and the "Needs your attention" panel
+// Design: docs/design/screens/home.html — page bar (Synced line and Refresh), greeting (the waiting banner floats from the shell: the user's call, 20 Oct 2026), composer with + Add context and its pickers, quick starts and the "Needs your attention" panel; Write my standup among the quick starts, and its dialog: Design: none — spec 057, Q8
 import { PageBar, PageBody, PageBreadcrumb } from '../../shell/page-frame.tsx';
 import { AttentionPanel } from './components/attention-panel.tsx';
 import { HomeComposer } from './components/home-composer.tsx';

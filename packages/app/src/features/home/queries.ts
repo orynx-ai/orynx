@@ -13,6 +13,7 @@ import {
   preferencesQueryOptions,
   queryKeys,
   skillsQueryOptions,
+  standupQueryOptions,
   type ApiRequestError,
 } from '@devhub/api-client';
 import { useApi } from '../../api.tsx';
@@ -82,4 +83,10 @@ export function useCheckFile() {
 export function useSkills(repositoryId: string | null, enabled: boolean) {
   const api = useApi();
   return useQuery({ ...skillsQueryOptions(api, repositoryId), enabled });
+}
+
+/** The standup's draft (spec 057, C), read when Write my standup opens. */
+export function useStandup(open: boolean) {
+  const api = useApi();
+  return useQuery({ ...standupQueryOptions(api), enabled: open });
 }

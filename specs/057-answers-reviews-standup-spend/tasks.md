@@ -94,7 +94,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 28: api-client: the standup (AC-27)
       Check: pnpm test packages/api-client/src/standup.test.ts
       Files: packages/api-client/src/endpoints/standup.ts, packages/api-client/src/client.ts, packages/api-client/src/queries.ts
-- [ ] Task 29: Home's "Write my standup" chip and the dialog: skeleton, the draft in an editable box, Copy, Close, the missing lines, focus and Escape (AC-27, AC-30, AC-31, AC-32, AC-33)
+- [x] Task 29: Home's "Write my standup" chip and the dialog: skeleton, the draft in an editable box, Copy, Close, the missing lines, focus and Escape (AC-27, AC-30, AC-31, AC-32, AC-33)
       Check: pnpm test packages/app/src/features/home/components/standup-dialog.test.tsx packages/app/src/features/home/components/quick-starts.test.tsx
       Files: packages/app/src/features/home/components/standup-dialog.tsx, packages/app/src/features/home/components/quick-starts.tsx, packages/app/src/features/home/composer-words.ts, the tests
 
