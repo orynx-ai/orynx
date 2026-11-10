@@ -15,7 +15,7 @@ export interface StandupFacts {
 const day = 86_400_000;
 
 /** `YYYY-MM-DD` on the laptop's clock. */
-function calendarDay(date: Date): string {
+export function calendarDay(date: Date): string {
   const two = (value: number) => String(value).padStart(2, '0');
   return `${String(date.getFullYear())}-${two(date.getMonth() + 1)}-${two(date.getDate())}`;
 }

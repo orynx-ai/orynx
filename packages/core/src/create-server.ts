@@ -25,6 +25,7 @@ import { createNotificationService } from './notifications/notification-service.
 import { createNotificationSettingsService } from './notifications/notification-settings.ts';
 import { createChatAnswers, type DesktopQuestions } from './chat-answers/chat-answers.ts';
 import { pullsWithNewThreads } from './sessions/pull-changes.ts';
+import { createStandupService } from './standup/standup-service.ts';
 import { createPreferencesService } from './preferences/preferences-service.ts';
 import { createRepositoryService, FolderRejectedError } from './repositories/repository-service.ts';
 import { createSkillStore, orynxSkillsFolder, SkillRejectedError } from './skills/skill-store.ts';
@@ -48,6 +49,7 @@ import { inboxRoutes } from './routes/inbox.ts';
 import { syncActivityRoutes } from './routes/sync-activity.ts';
 import { jiraRoutes } from './routes/jira.ts';
 import { notificationsRoutes } from './routes/notifications.ts';
+import { standupRoutes } from './routes/standup.ts';
 import { storageRoutes } from './routes/storage.ts';
 import { preferencesRoutes } from './routes/preferences.ts';
 import { repositoriesRoutes } from './routes/repositories.ts';
@@ -752,6 +754,13 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
         setup: createSetupService({ settings, password: options.password ?? createPasswordStore() }),
       });
       await api.register(storageRoutes, { sessions: sessionService });
+      await api.register(standupRoutes, {
+        standup: createStandupService({
+          sessions,
+          github: { client: githubClient, credentials: () => github.credentials() },
+          jira: { client: jiraClient, credentials: () => jira.credentials() },
+        }),
+      });
       await api.register(notificationsRoutes, {
         notifications,
         settings: createNotificationSettingsService({ settings, events }),

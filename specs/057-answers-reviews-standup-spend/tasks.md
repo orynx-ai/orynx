@@ -88,7 +88,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 26: The last working day and the standup's text from plain facts (AC-28, AC-29, AC-30)
       Check: pnpm test packages/core/src/standup/standup-text.test.ts
       Files: packages/core/src/standup/standup-text.ts, the test
-- [ ] Task 27: The standup service and `GET /api/standup`: facts from sessions, GitHub, Jira and the sprint, with each failed source missing (AC-28, AC-31)
+- [x] Task 27: The standup service and `GET /api/standup`: facts from sessions, GitHub, Jira and the sprint, with each failed source missing (AC-28, AC-31)
       Check: pnpm test packages/core/src/routes/standup.test.ts
       Files: packages/core/src/standup/standup-service.ts, packages/core/src/routes/standup.ts, packages/core/src/create-server.ts, the test
 - [ ] Task 28: api-client: the standup (AC-27)
