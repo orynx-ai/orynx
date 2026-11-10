@@ -260,6 +260,11 @@ export interface SessionService {
    */
   watchPulls(): Promise<void>;
   /**
+   * Your pull requests whose review threads changed on GitHub (spec 057, AC-24), as `owner/name#number`: each session on
+   * one is changed for the page, so its Review comments tab reads them again.
+   */
+  threadsChanged(pulls: readonly string[]): Promise<void>;
+  /**
    * Spec 047, D: one run of Settings › Coding agent's Delete old sessions. The ended, unpinned sessions older than the
    * choice, with nothing to lose, go as Delete takes them, branch kept, one at a time; one that fails stays for the next
    * run. Never deletes nothing. A run asked for during another runs after it. Tells `onCleaned` when it deleted any.
@@ -2196,6 +2201,17 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
 
     remove(id, { branch = false } = {}) {
       return whileEnding(id, removeNow(id, branch));
+    },
+
+    async threadsChanged(pulls) {
+      if (pulls.length === 0) return;
+      const changed = new Set(pulls);
+      for (const { id } of await records.list()) {
+        const pull = (await records.get(id))?.session.pullRequest ?? null;
+        if (pull !== null && changed.has(`${pull.repository}#${String(pull.number)}`)) {
+          events.publish({ type: 'session.changed', sessionId: id });
+        }
+      }
     },
 
     cleanUp() {

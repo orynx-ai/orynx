@@ -61,9 +61,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 18: `GET /api/sessions/:id/review-threads`: the threads read live, `placeable` from the files changed since the last push, 404 with no PR, and a failure as its own answer (AC-18, AC-21, AC-23, AC-25)
       Check: pnpm test packages/core/src/sessions/pull-requests.test.ts packages/core/src/routes/sessions.test.ts -t "spec 057"
       Files: packages/core/src/sessions/pull-requests.ts, packages/core/src/sessions/session-service.ts, packages/core/src/routes/sessions.ts, the tests
-- [ ] Task 19: An inbox sync that sees a session's pull request change says `session.changed` for it (AC-24)
-      Check: pnpm test packages/core/src/sessions/session-service.test.ts -t "review comments"
-      Files: packages/core/src/sessions/session-service.ts, packages/core/src/create-server.ts, the test
+- [x] Task 19: An inbox sync that sees a session's pull request change says `session.changed` for it (AC-24)
+      Check: pnpm test packages/core/src/sessions/pull-changes.test.ts packages/core/src/sessions/session-service.test.ts -t "AC-24|between syncs"
+      Files: packages/core/src/sessions/pull-changes.ts, packages/core/src/sessions/session-service.ts, packages/core/src/create-server.ts, the tests
 - [ ] Task 20: api-client: the review threads and their query options (AC-18)
       Check: pnpm test packages/api-client/src/endpoints/sessions.test.ts
       Files: packages/api-client/src/endpoints/sessions.ts, packages/api-client/src/client.ts, packages/api-client/src/queries.ts

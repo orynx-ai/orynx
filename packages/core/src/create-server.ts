@@ -24,6 +24,7 @@ import { registerLocalOnly } from './plugins/local-only.ts';
 import { createNotificationService } from './notifications/notification-service.ts';
 import { createNotificationSettingsService } from './notifications/notification-settings.ts';
 import { createChatAnswers, type DesktopQuestions } from './chat-answers/chat-answers.ts';
+import { pullsWithNewThreads } from './sessions/pull-changes.ts';
 import { createPreferencesService } from './preferences/preferences-service.ts';
 import { createRepositoryService, FolderRejectedError } from './repositories/repository-service.ts';
 import { createSkillStore, orynxSkillsFolder, SkillRejectedError } from './skills/skill-store.ts';
@@ -406,6 +407,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
   });
   // The session service is made below; until then a sync has no sessions to watch (spec 047).
   let watchPulls: () => Promise<void> = () => Promise.resolve();
+  let threadsChanged: (pulls: readonly string[]) => Promise<void> = () => Promise.resolve();
   const inbox = createInboxService({
     cache,
     settings,
@@ -430,6 +432,10 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
       if (tool === 'github') {
         watchPulls().catch((error: unknown) => {
           app.log.error(error, 'Watching the sessions’ pull requests failed');
+        });
+        // A reviewer's new thread reaches the session's Review comments tab (spec 057, AC-24).
+        threadsChanged(pullsWithNewThreads(before, after)).catch((error: unknown) => {
+          app.log.error(error, 'Telling sessions about new review comments failed');
         });
       }
     },
@@ -626,6 +632,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     },
   });
   watchPulls = () => sessionService.watchPulls();
+  threadsChanged = (pulls) => sessionService.threadsChanged(pulls);
   // Delete old sessions runs on its own only where syncs do (spec 047, D): never in a test by surprise.
   const cleanup =
     options.autoSync === true

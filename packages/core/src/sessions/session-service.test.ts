@@ -2176,6 +2176,23 @@ describe('the pull request (spec 014)', () => {
   });
 });
 
+describe('review comments that changed on GitHub (spec 057, AC-24)', () => {
+  it('tells the page about the session whose pull request has new review comments, and no other', async () => {
+    const { service, records, heard } = await setUp({ script: [edit('src/a.ts'), { finish: 'First.' }] });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await settled(records);
+    await records.update('0000000000000001', (current) => ({
+      ...current,
+      session: { ...current.session, state: 'pr_open', pullRequest: makeSessionPullRequest() },
+    }));
+    const from = heard.length;
+
+    await service.threadsChanged(['acme/web-app#2841', 'acme/other#7']);
+
+    expect(heard.slice(from)).toEqual([{ type: 'session.changed', sessionId: '0000000000000001' }]);
+  });
+});
+
 describe('after the pull request (spec 047)', () => {
   const id = '0000000000000001';
   const asked = { title: 'PROJ-1423: Add bulk archive to the content list', body: 'What changed.' };
