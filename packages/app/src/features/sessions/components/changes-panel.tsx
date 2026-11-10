@@ -1,6 +1,6 @@
 import { useId } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import type { ChangedFile, Editor, FileDiff, ReviewComment, Session } from '@devhub/contracts';
+import type { ChangedFile, Editor, FileDiff, PullThread, ReviewComment, Session } from '@devhub/contracts';
 import {
   Button,
   CheckboxBox,
@@ -22,8 +22,9 @@ import {
   renamedLine,
   unreadableLine,
 } from '../change-words.ts';
-import { useEditor, useSessionChanges, useSessionDiff } from '../queries.ts';
+import { useEditor, useReviewThreads, useSessionChanges, useSessionDiff } from '../queries.ts';
 import { isViewed, useDiffView } from '../store.ts';
+import { hasReviewComments, ThreadNote } from './review-comments-panel.tsx';
 import { ReviewNote } from './review-note.tsx';
 
 /** "Couldn't read the changes." with Try again, as the sessions list says it couldn't load. */
@@ -67,8 +68,20 @@ function Viewed({ sessionId, file }: { sessionId: string; file: ChangedFile }) {
   );
 }
 
+/** Reviewers' threads the Changes diff can show (spec 057, AC-20): placeable ones, by file. */
+function usePlacedThreads(session: Session): readonly PullThread[] {
+  const threads = useReviewThreads(session.id, hasReviewComments(session)).data;
+  return threads?.result === 'threads' ? threads.threads.filter((thread) => thread.placeable) : [];
+}
+
+/** Whether a note on `side` and `number` belongs under this line: a removed line's by the old file's number. */
+function under(line: { kind: string; number: number }, side: 'new' | 'old', number: number | null): boolean {
+  return number === line.number && (side === 'old') === (line.kind === 'removed');
+}
+
 function ShownDiff({ session, file, editor }: { session: Session; file: ChangedFile; editor: Editor }) {
   const diff = useSessionDiff(session.id, file.binary ? null : file.path);
+  const threads = usePlacedThreads(session).filter((thread) => thread.path === file.path);
   const wrap = useDiffView((state) => state.wrap);
   const actions = (
     <>
@@ -80,15 +93,18 @@ function ShownDiff({ session, file, editor }: { session: Session; file: ChangedF
   if (diff.isPending) return <DiffViewSkeleton />;
   if (diff.isError) return <Unreadable onRetry={() => void diff.refetch()} />;
   // A review's comments, each under its line: a removed line's by the old file's number, any other's by the new.
+  // Reviewers' threads on your own pull request go under their lines the same way (spec 057, AC-20).
   const comments = session.review?.comments.filter((comment) => comment.path === file.path) ?? [];
   const noteFor = (line: { kind: string; number: number }) => {
-    const here = comments.filter(
-      (comment) => comment.line === line.number && (comment.side === 'old') === (line.kind === 'removed'),
-    );
-    return here.length === 0 ? null : (
+    const here = comments.filter((comment) => under(line, comment.side, comment.line));
+    const reviewers = threads.filter((thread) => under(line, thread.side, thread.line));
+    return here.length === 0 && reviewers.length === 0 ? null : (
       <div className="flex flex-col gap-2">
         {here.map((comment) => (
           <ReviewNote key={comment.id} sessionId={session.id} comment={comment} agent={session.agent} />
+        ))}
+        {reviewers.map((thread) => (
+          <ThreadNote key={thread.id} thread={thread} />
         ))}
       </div>
     );
@@ -99,15 +115,22 @@ function ShownDiff({ session, file, editor }: { session: Session; file: ChangedF
       lines={linesOf(file, diff.data, editor)}
       wrap={wrap}
       actions={actions}
-      {...(comments.length === 0 ? {} : { noteFor })}
+      {...(comments.length === 0 && threads.length === 0 ? {} : { noteFor })}
     />
   );
 }
 
-/** Each changed file with how many of a review's comments are on it (spec 050). */
-function withComments(files: readonly ChangedFile[], comments: readonly ReviewComment[] | undefined) {
-  if (comments === undefined) return files;
-  return files.map((file) => ({ ...file, comments: comments.filter((comment) => comment.path === file.path).length }));
+/** Each changed file with how many of a review's comments (spec 050) and reviewers' placed threads (spec 057) are on it. */
+function withComments(
+  files: readonly ChangedFile[],
+  comments: readonly ReviewComment[] | undefined,
+  threads: readonly PullThread[],
+) {
+  if (comments === undefined && threads.length === 0) return files;
+  const on = (path: string) =>
+    (comments ?? []).filter((comment) => comment.path === path).length +
+    threads.filter((thread) => thread.path === path).length;
+  return files.map((file) => ({ ...file, comments: on(file.path) }));
 }
 
 /** The Changes tab's totals, "+142 −18", and Wrap lines, at the end of the tabs' row (spec 048, AC-18). */
@@ -157,6 +180,7 @@ export function ChangesSkeleton() {
  */
 export function ChangesPanel({ session }: { session: Session }) {
   const changes = useSessionChanges(session.id);
+  const placed = usePlacedThreads(session);
   const editor = useEditor();
   const { file } = useSearch({ from: '/sessions/$sessionId' });
   const navigate = useNavigate({ from: '/sessions/$sessionId' });
@@ -189,7 +213,7 @@ export function ChangesPanel({ session }: { session: Session }) {
           <div className="flex min-w-0 flex-col gap-2 @xl:sticky @xl:top-0 @xl:w-60 @xl:shrink-0">
             <FileList
               aria-label="Changed files"
-              files={withComments(files, session.review?.comments)}
+              files={withComments(files, session.review?.comments, placed)}
               current={shown?.path}
               maxRows={8}
               onSelect={(path) => {

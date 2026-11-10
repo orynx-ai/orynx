@@ -70,7 +70,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 21: The Review comments tab: count, skeleton, empty, error with Try again, threads by file with their labels, (AC-18, AC-19, AC-21, AC-22, AC-23, AC-25, AC-26)
       Check: pnpm test packages/app/src/features/sessions/components/review-comments-panel.test.tsx packages/app/src/features/sessions/session-screen.test.tsx
       Files: packages/app/src/features/sessions/components/review-comments-panel.tsx, packages/app/src/features/sessions/components/session-details.tsx, packages/app/src/features/sessions/session-screen.tsx, packages/app/src/features/sessions/session-search.ts, packages/app/src/features/sessions/queries.ts, packages/app/src/features/sessions/review-words.ts, the tests
-- [ ] Task 22: Reviewers' notes in the Changes diff and their count in the file list (AC-20, AC-21, AC-26)
+- [x] Task 22: Reviewers' notes in the Changes diff and their count in the file list (AC-20, AC-21, AC-26)
       Check: pnpm test packages/app/src/features/sessions/components/changes-panel.test.tsx
       Files: packages/app/src/features/sessions/components/changes-panel.tsx, the test
 - [ ] Task 23: e2e: the tab and a note in the diff on a session's own pull request, with no axe violations in either theme (AC-18, AC-20, AC-26)
