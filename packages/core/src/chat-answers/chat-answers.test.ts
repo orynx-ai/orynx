@@ -13,7 +13,13 @@ import { openFileSessionStore } from '../sessions/file-session-store.ts';
 import { createMemorySettingsStore } from '../settings/settings-store.ts';
 import { fakeClaudeSdk, type FakeTurn } from '../test/fake-claude-sdk.ts';
 import { useFakeClaudeFolder } from '../test/fake-claude.ts';
-import { acceptingBot, discordDmConversation, discordToken, discordUserId } from '../test/fake-discord.ts';
+import {
+  acceptingBot,
+  discordDmClosed,
+  discordDmConversation,
+  discordToken,
+  discordUserId,
+} from '../test/fake-discord.ts';
 import {
   acceptingAuthTest,
   acceptingBotToken,
@@ -67,7 +73,16 @@ const library = {
 const asks: FakeTurn[] = [{ tool: 'AskUserQuestion', input: { questions: [library] } }, { finish: 'Done.' }];
 
 /** A hub with one folder, Slack (with its bot) and Discord connected, and a session started from the composer. */
-async function hub({ script, chat }: { script: readonly FakeTurn[]; chat: ChatAnswers }) {
+async function hub({
+  script,
+  chat,
+  dmsClosed = false,
+}: {
+  script: readonly FakeTurn[];
+  chat: ChatAnswers;
+  /** You don't take the Discord bot's DMs. */
+  dmsClosed?: boolean;
+}) {
   const repos = await repositories();
   home = await realpath(await mkdtemp(join(tmpdir(), 'devhub-chat-')));
   const folder = await fakeClaudeFolder();
@@ -82,6 +97,7 @@ async function hub({ script, chat }: { script: readonly FakeTurn[]; chat: ChatAn
     knownUsers(),
     ...slack.handlers,
   );
+  if (dmsClosed) tools.use(discordDmClosed());
 
   const sdk = fakeClaudeSdk(script);
   const server = await createServer({
@@ -122,25 +138,36 @@ async function hub({ script, chat }: { script: readonly FakeTurn[]; chat: ChatAn
     payload: { path: repos.clone, jiraProject: null },
   });
   const { id: repositoryId } = added.json<{ id: string }>();
-  const started = await server.inject({
-    method: 'POST',
-    url: apiRoutes.sessions,
-    headers,
-    payload: { message: 'Pick a date library', repositoryId, context: [], mode: 'build' },
-  });
-  const { sessionId } = started.json<{ sessionId: string }>();
-
-  const session = async () =>
-    SessionSchema.parse(
-      (await server.inject({ method: 'GET', url: apiRoutes.session.replace(':id', sessionId), headers })).json(),
-    );
-  const waiting = async () => {
-    await vi.waitFor(async () => {
-      expect((await session()).approvals.length).toBeGreaterThan(0);
+  const start = async (message = 'Pick a date library') => {
+    const started = await server.inject({
+      method: 'POST',
+      url: apiRoutes.sessions,
+      headers,
+      payload: { message, repositoryId, context: [], mode: 'build' },
     });
-    return (await session()).approvals;
+    return started.json<{ sessionId: string }>().sessionId;
   };
-  return { discord, slack, session, waiting, sdk };
+  const sessionId = await start();
+
+  const session = async (id = sessionId) =>
+    SessionSchema.parse(
+      (await server.inject({ method: 'GET', url: apiRoutes.session.replace(':id', id), headers })).json(),
+    );
+  const waiting = async (id = sessionId) => {
+    await vi.waitFor(async () => {
+      expect((await session(id)).approvals.length).toBeGreaterThan(0);
+    });
+    return (await session(id)).approvals;
+  };
+  const answerInOrynx = (approvalId: string, picked: string) =>
+    server.inject({
+      method: 'POST',
+      url: apiRoutes.sessionApproval.replace(':id', sessionId).replace(':approvalId', approvalId),
+      headers,
+      payload: { decision: 'answer', answers: [{ picked: [picked], other: null }] },
+    });
+  const stop = () => server.inject({ method: 'POST', url: apiRoutes.sessionStop.replace(':id', sessionId), headers });
+  return { discord, slack, session, waiting, start, answerInOrynx, stop, sdk };
 }
 
 describe.skipIf(process.platform === 'win32')("answering Claude's question from chat (spec 057, A)", () => {
@@ -273,5 +300,85 @@ describe.skipIf(process.platform === 'win32')("answering Claude's question from 
     await new Promise((resolve) => setTimeout(resolve, 300));
     expect(discord.sent()).toEqual([]);
     expect(slack.sent()).toEqual([]);
+  });
+
+  it('AC-6: answered in Orynx first, the chat says so at once, and a later reply changes nothing', async () => {
+    const { discord, session, waiting, answerInOrynx } = await hub({ script: asks, chat: { on: true, to: 'discord' } });
+    const [approval] = await waiting();
+    await vi.waitFor(() => {
+      expect(discord.sent()).toHaveLength(1);
+    });
+    const question = discord.sent()[0]?.id;
+
+    expect((await answerInOrynx(approval?.id ?? '', 'date-fns')).statusCode).toBe(204);
+    await vi.waitFor(() => {
+      expect(discord.sent().at(-1)).toMatchObject({
+        content: 'Answered in Orynx.',
+        message_reference: { message_id: question },
+      });
+    });
+
+    discord.reply('2', question);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(discord.sent()).toHaveLength(2);
+    const answered = (await session()).activities.filter((activity) => activity.kind === 'answered');
+    expect(answered).toEqual([expect.objectContaining({ answers: [{ header: 'Library', answer: 'date-fns' }] })]);
+    expect(answered[0]).not.toHaveProperty('from');
+  });
+
+  it('AC-7: Stop says the session stopped, in Slack and on Discord', async () => {
+    const { discord, slack, waiting, stop } = await hub({ script: asks, chat: { on: true, to: 'both' } });
+    await waiting();
+    await vi.waitFor(() => {
+      expect(discord.sent()).toHaveLength(1);
+      expect(slack.sent()).toHaveLength(1);
+    });
+
+    await stop();
+    await vi.waitFor(() => {
+      expect(discord.sent().at(-1)?.content).toBe('The session stopped.');
+      expect(slack.sent().at(-1)).toMatchObject({ text: 'The session stopped.', thread_ts: slack.sent()[0]?.ts });
+    });
+  });
+
+  it('AC-8: with two questions waiting on Discord, a plain message asks for Reply, and a Reply answers only its own', async () => {
+    const { discord, session, waiting, start } = await hub({ script: asks, chat: { on: true, to: 'discord' } });
+    await waiting();
+    const second = await start('Pick a test runner');
+    await waiting(second);
+    await vi.waitFor(() => {
+      expect(discord.sent()).toHaveLength(2);
+    });
+    const [, toSecond] = discord.sent();
+
+    const plain = discord.reply('1');
+    await vi.waitFor(() => {
+      expect(discord.sent().at(-1)).toMatchObject({
+        content: "Use Reply on the question you're answering.",
+        message_reference: { message_id: plain },
+      });
+    });
+
+    discord.reply('3', toSecond?.id);
+    await vi.waitFor(async () => {
+      expect((await session(second)).activities).toContainEqual(
+        expect.objectContaining({ kind: 'answered', answers: [{ header: 'Library', answer: 'Temporal' }] }),
+      );
+    });
+    expect((await session()).approvals).toHaveLength(1);
+  });
+
+  it('AC-13: a DM Discord turns down leaves the question waiting in Orynx, with a line on its step', async () => {
+    const { discord, session, waiting } = await hub({
+      script: asks,
+      chat: { on: true, to: 'discord' },
+      dmsClosed: true,
+    });
+    await waiting();
+    await vi.waitFor(async () => {
+      expect((await session()).activities.at(-1)).toMatchObject({ kind: 'waiting', unsent: ['discord'] });
+    });
+    expect((await session()).approvals).toHaveLength(1);
+    expect(discord.sent()).toEqual([]);
   });
 });
