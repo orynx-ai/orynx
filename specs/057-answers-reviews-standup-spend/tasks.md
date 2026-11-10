@@ -10,7 +10,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 2: Read a chat reply against the waiting question (number, numbers, skip, Other, out of range, several on a one-pick), and write every message Orynx sends (AC-1, AC-3, AC-4, AC-5, AC-9, AC-10)
       Check: pnpm test packages/core/src/chat-answers/reply.test.ts packages/core/src/chat-answers/words.test.ts
       Files: packages/core/src/chat-answers/reply.ts, packages/core/src/chat-answers/words.ts, and their tests
-- [ ] Task 3: Discord's DM: open it, send, and read your messages after Orynx's, including Discord's Reply, with 429 and refused DMs as problems (AC-1, AC-8, AC-13)
+- [x] Task 3: Discord's DM: open it, send, and read your messages after Orynx's, including Discord's Reply, with 429 and refused DMs as problems (AC-1, AC-8, AC-13)
       Check: pnpm test packages/core/src/integrations/discord/client.test.ts packages/core/src/integrations/discord/no-token-leaks.test.ts
       Files: packages/core/src/integrations/discord/client.ts, packages/core/src/test/fake-discord.ts, the tests
 - [ ] Task 4: Slack's bot: check a bot token, open the DM, send, and read the thread's replies; the bot token as its own keychain item (AC-14)

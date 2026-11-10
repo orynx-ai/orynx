@@ -146,6 +146,23 @@ export function discordPosts(posted: { channel: string; body: unknown }[] = [], 
   });
 }
 
+/** Opening the bot's DM with a person (spec 057, A): Discord answers the DM channel; `opened` collects each recipient. */
+export function discordDm(channel: string, opened: string[] = []) {
+  return http.post(`${discordApi}/users/@me/channels`, async ({ request }) => {
+    if (!sentToken(request, [discordToken])) return unauthorized();
+    const body = (await request.json()) as { recipient_id?: unknown };
+    opened.push(String(body.recipient_id));
+    return HttpResponse.json({ id: channel, type: 1 });
+  });
+}
+
+/** A person who doesn't take DMs from the bot: Discord refuses each message with its code 50007. */
+export function discordDmClosed() {
+  return http.post(`${discordApi}/channels/:channel/messages`, () =>
+    HttpResponse.json({ message: 'Cannot send messages to this user', code: 50007 }, { status: 403 }),
+  );
+}
+
 /**
  * MSW standing in for Discord, an outside service, for the test file that calls this. It answers for the bot and
  * fails any other request, so no test can reach the real internet.

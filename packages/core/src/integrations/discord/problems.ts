@@ -17,5 +17,7 @@ export function describeDiscordProblem(problem: DiscordProblem): string {
       return "discord.com didn't answer in 10 seconds. Try again.";
     case 'discord_error':
       return `Discord answered with an error (${String(problem.status)}). Try again in a minute.`;
+    case 'dm_closed':
+      return "Discord won't let the bot message you. Allow direct messages from a server you share with it.";
   }
 }

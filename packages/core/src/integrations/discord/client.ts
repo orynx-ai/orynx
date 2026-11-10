@@ -23,7 +23,9 @@ export type DiscordProblem =
   | { kind: 'unreachable'; code: string | undefined }
   | { kind: 'timeout' }
   /** Discord answered with an error that says nothing about the token. */
-  | { kind: 'discord_error'; status: number };
+  | { kind: 'discord_error'; status: number }
+  /** You don't take DMs from the bot: you share no server with it, or turned them off (spec 057, AC-13). */
+  | { kind: 'dm_closed' };
 
 export interface DiscordServer {
   id: string;
@@ -40,6 +42,14 @@ export type DiscordCheck =
  */
 export type DiscordWaiting =
   { ok: true; records: DiscordMessageRecord[]; indexing: boolean } | { ok: false; problem: DiscordProblem };
+
+/** A message in the bot's DM with you (spec 057, A): who wrote it, its text, and the message it Replies to. */
+export interface DmMessage {
+  id: string;
+  author: string;
+  text: string;
+  replyTo: string | null;
+}
 
 /** A thread Discord gave, or `not_found`: deleted, or somewhere the bot can't read. */
 export type DiscordThreadAnswer =
@@ -68,6 +78,24 @@ export interface DiscordClient {
     chip: { guild: string; channel: string; message: string },
     text: string,
   ): Promise<PostedReply>;
+  /** Opens the bot's DM with you, or finds the one it has (spec 057, A). */
+  openDm(
+    token: string,
+    userId: string,
+  ): Promise<{ ok: true; channel: string } | { ok: false; problem: DiscordProblem }>;
+  /** Sends `text` to the DM as the bot, as a Reply to `replyTo` when given, pinging nobody; answers the message's id. */
+  sendDm(
+    token: string,
+    channel: string,
+    text: string,
+    replyTo?: string,
+  ): Promise<{ ok: true; id: string } | { ok: false; problem: DiscordProblem }>;
+  /** The DM's messages after `after`, oldest first, up to 100 a read. */
+  dmAfter(
+    token: string,
+    channel: string,
+    after: string,
+  ): Promise<{ ok: true; messages: DmMessage[] } | { ok: false; problem: DiscordProblem }>;
 }
 
 export interface DiscordClientOptions {
@@ -146,11 +174,17 @@ class DiscordFailure extends Error {
 }
 
 export function createDiscordClient({ timeoutMs = 10_000, now = Date.now }: DiscordClientOptions = {}): DiscordClient {
-  async function get<T extends z.ZodType>(token: string, path: string, schema: T): Promise<z.infer<T>> {
+  /** One call to Discord, with a JSON body when there's one; a refused token or a rate limit is a failure. */
+  async function request(token: string, path: string, body?: unknown): Promise<Response> {
     let response: Response;
     try {
       response = await fetch(`${discordApi}${path}`, {
-        headers: { authorization: `Bot ${token}`, 'user-agent': 'Orynx (https://orynx.local, 1)' },
+        ...(body === undefined ? {} : { method: 'POST', body: JSON.stringify(body) }),
+        headers: {
+          authorization: `Bot ${token}`,
+          'user-agent': 'Orynx (https://orynx.local, 1)',
+          ...(body === undefined ? {} : { 'content-type': 'application/json' }),
+        },
         signal: AbortSignal.timeout(timeoutMs),
       });
     } catch (error) {
@@ -158,12 +192,42 @@ export function createDiscordClient({ timeoutMs = 10_000, now = Date.now }: Disc
       throw new DiscordFailure(timedOut ? { kind: 'timeout' } : { kind: 'unreachable', code: networkCode(error) });
     }
     if (response.status === 401) throw new DiscordFailure({ kind: 'rejected' });
-    if (response.status === 202) throw notIndexedYet;
     if (response.status === 429) throw new DiscordFailure({ kind: 'rate_limited', resetAt: await resetOf(response) });
+    return response;
+  }
+
+  async function get<T extends z.ZodType>(token: string, path: string, schema: T): Promise<z.infer<T>> {
+    const response = await request(token, path);
+    if (response.status === 202) throw notIndexedYet;
     if (!response.ok) throw new DiscordFailure({ kind: 'discord_error', status: response.status });
     const read = schema.safeParse(await response.json().catch(() => null));
     if (!read.success) throw new DiscordFailure({ kind: 'discord_error', status: response.status });
     return read.data;
+  }
+
+  /** A POST to the bot's DM: Discord's 50007 means you don't take its DMs. */
+  async function post<T extends z.ZodType>(token: string, path: string, body: unknown, schema: T): Promise<z.infer<T>> {
+    const response = await request(token, path, body);
+    const answer: unknown = await response.json().catch(() => null);
+    if (!response.ok) {
+      const code = typeof answer === 'object' && answer !== null && 'code' in answer ? answer.code : null;
+      throw new DiscordFailure(
+        code === 50007 ? { kind: 'dm_closed' } : { kind: 'discord_error', status: response.status },
+      );
+    }
+    const read = schema.safeParse(answer);
+    if (!read.success) throw new DiscordFailure({ kind: 'discord_error', status: response.status });
+    return read.data;
+  }
+
+  /** A call's answer, or the problem it ran into. */
+  async function settled<T>(call: () => Promise<T>): Promise<T | { ok: false; problem: DiscordProblem }> {
+    try {
+      return await call();
+    } catch (error) {
+      if (error instanceof DiscordFailure) return { ok: false, problem: error.problem };
+      throw error;
+    }
   }
 
   /** When to try again: Discord's `retry_after` seconds, else its Retry-After header. */
@@ -328,6 +392,40 @@ export function createDiscordClient({ timeoutMs = 10_000, now = Date.now }: Disc
       }
       const id = typeof body === 'object' && body !== null && 'id' in body ? String(body.id) : message;
       return { ok: true, url: `https://discord.com/channels/${guild}/${channel}/${id}` };
+    },
+
+    openDm(token, userId) {
+      return settled(async () => {
+        const dm = await post(token, '/users/@me/channels', { recipient_id: userId }, z.object({ id: z.string() }));
+        return { ok: true as const, channel: dm.id };
+      });
+    },
+
+    sendDm(token, channel, text, replyTo) {
+      return settled(async () => {
+        const body = {
+          content: text,
+          ...(replyTo === undefined ? {} : { message_reference: { message_id: replyTo, fail_if_not_exists: false } }),
+          allowed_mentions: { parse: [] },
+        };
+        const sent = await post(token, `/channels/${channel}/messages`, body, z.object({ id: z.string() }));
+        return { ok: true as const, id: sent.id };
+      });
+    },
+
+    dmAfter(token, channel, after) {
+      return settled(async () => {
+        const list = await get(token, `/channels/${channel}/messages?after=${after}&limit=100`, MessagesSchema);
+        const messages = readMessages(list)
+          .sort((a, b) => (BigInt(a.id) < BigInt(b.id) ? -1 : 1))
+          .map((each) => ({
+            id: each.id,
+            author: each.author.id,
+            text: each.content,
+            replyTo: each.message_reference?.message_id ?? null,
+          }));
+        return { ok: true as const, messages };
+      });
     },
 
     async check(token, userId) {
