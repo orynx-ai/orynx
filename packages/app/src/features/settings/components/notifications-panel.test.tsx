@@ -2,6 +2,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { apiRoutes, defaultNotificationSettings, withNotificationChange } from '@devhub/contracts';
+import { makeDiscordConnection, makeSlackConnection } from '@devhub/contracts/testing';
 import { FakeAudioContext } from '../../../test/fake-audio-context.ts';
 import { FakeEventSource } from '../../../test/fake-event-source.ts';
 import { apiUrl, server } from '../../../test/msw.ts';
@@ -444,6 +445,95 @@ describe('Settings › Notifications: do not disturb (spec 029)', () => {
 
     await waitFor(() => {
       expect(changes).toEqual([{ approvalsBreakThrough: false }]);
+    });
+  });
+});
+
+describe("Settings › Notifications: answer Claude's questions from chat (spec 057)", () => {
+  const name = "Answer Claude's questions from chat";
+
+  function connected({ slackBot = false, discord = false }) {
+    server.use(
+      http.get(apiUrl(apiRoutes.slackConnection), () => HttpResponse.json(makeSlackConnection({ bot: slackBot }))),
+      http.get(apiUrl(apiRoutes.discordConnection), () =>
+        HttpResponse.json(discord ? makeDiscordConnection() : makeDiscordConnection({ saved: null })),
+      ),
+    );
+  }
+
+  it('AC-12: with no Slack bot and no Discord, the row is off and disabled, and links to Connections', async () => {
+    browserSays('granted');
+    await renderApp({ route: '/settings/notifications' });
+    const section = await where();
+
+    const link = await within(section).findByRole('link', { name: 'Connect Slack or Discord first' });
+    expect(link).toHaveAttribute('href', '/settings/connections');
+    expect(within(section).getByRole('switch', { name })).toBeDisabled();
+    expect(within(section).getByRole('switch', { name })).not.toBeChecked();
+    expect(
+      within(section).getByText(
+        'Sends a question and its choices to Slack or Discord, and takes your reply. Commands still wait for you here.',
+      ),
+    ).toBeVisible();
+  });
+
+  it('AC-12, AC-17: with only Discord, Space turns it on for Discord, and Slack is a choice that waits for its bot', async () => {
+    browserSays('granted');
+    connected({ discord: true });
+    // The server keeps what was saved, so the page reads it back after the save.
+    let kept = defaultNotificationSettings;
+    const changes: unknown[] = [];
+    server.use(
+      http.get(apiUrl(apiRoutes.notificationSettings), () => HttpResponse.json(kept)),
+      http.patch(apiUrl(apiRoutes.notificationSettings), async ({ request }) => {
+        const change = (await request.json()) as Parameters<typeof withNotificationChange>[1];
+        changes.push(change);
+        kept = withNotificationChange(kept, change);
+        return HttpResponse.json(kept);
+      }),
+    );
+    const { user } = await renderApp({ route: '/settings/notifications' });
+    const section = await where();
+    const row = within(section).getByRole('switch', { name });
+    await waitFor(() => {
+      expect(row).toBeEnabled();
+    });
+
+    row.focus();
+    await user.keyboard(' ');
+    await waitFor(() => {
+      expect(changes).toEqual([{ chatAnswers: { on: true, to: 'discord' } }]);
+    });
+    const picker = within(section).getByRole('combobox', { name: 'Send questions to' });
+    await waitFor(() => {
+      expect(picker).toBeEnabled();
+    });
+    await user.click(picker);
+    expect(screen.getByRole('option', { name: 'Discord' })).toBeVisible();
+    expect(screen.getByRole('option', { name: 'Slack' })).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByRole('option', { name: 'Slack and Discord' })).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('AC-12: with both, picking Slack and Discord saves it', async () => {
+    browserSays('granted');
+    connected({ slackBot: true, discord: true });
+    server.use(
+      http.get(apiUrl(apiRoutes.notificationSettings), () =>
+        HttpResponse.json({ ...defaultNotificationSettings, chatAnswers: { on: true, to: 'slack' } }),
+      ),
+    );
+    const changes = saving();
+    const { user } = await renderApp({ route: '/settings/notifications' });
+    const section = await where();
+    const picker = within(section).getByRole('combobox', { name: 'Send questions to' });
+    await waitFor(() => {
+      expect(picker).toBeEnabled();
+    });
+
+    await user.click(picker);
+    await user.click(screen.getByRole('option', { name: 'Slack and Discord' }));
+    await waitFor(() => {
+      expect(changes).toEqual([{ chatAnswers: { on: true, to: 'both' } }]);
     });
   });
 });

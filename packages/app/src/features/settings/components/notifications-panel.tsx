@@ -2,7 +2,9 @@ import { useId, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
 import { PlayIcon, VolumeHighIcon } from '@hugeicons/core-free-icons';
+import { Link } from '@tanstack/react-router';
 import {
+  ChatAnswersSchema,
   defaultNotificationSettings,
   NotificationSoundSchema,
   PauseLengthSchema,
@@ -13,6 +15,7 @@ import {
   type QuietHours,
   type NotificationSettings,
   type NotificationSettingsChange,
+  type ChatAnswers,
 } from '@devhub/contracts';
 import {
   Button,
@@ -43,6 +46,7 @@ import { playSound, soundNames, type PlayableSound } from '../../notifications/s
 import { useNow } from '../../../words/use-now.ts';
 import { askDesktopPermission, desktopPermission, type DesktopPermission } from '../../notifications/desktop.ts';
 import { useChangeNotificationSettings, useNotificationSettings } from '../../notifications/queries.ts';
+import { useDiscordConnection, useSlackConnection } from '../queries.ts';
 import { usePlatform } from '../../../platform.tsx';
 import { SaveError } from './save-error.tsx';
 import { ServerUnreachable } from './server-unreachable.tsx';
@@ -179,8 +183,74 @@ function WhereSection({ saved, loading, save }: SectionProps) {
             }}
           />
         </SettingRow>
+        <ChatAnswersRow saved={saved} loading={loading} save={save} />
       </SettingList>
     </section>
+  );
+}
+
+const chatPlaces: Record<ChatAnswers['to'], string> = {
+  slack: 'Slack',
+  discord: 'Discord',
+  both: 'Slack and Discord',
+};
+
+/**
+ * Answer Claude's questions from chat (spec 057, A): on, and where to. Slack counts once its bot is saved, Discord once
+ * it's connected; with neither, the row is off and points to Connections (AC-12).
+ */
+function ChatAnswersRow({ saved, loading, save }: SectionProps) {
+  const ids = { title: useId() };
+  const slack = useSlackConnection();
+  const discord = useDiscordConnection();
+  // While the connections load, the picker shows, disabled, so nothing moves when they come.
+  const checking = slack.data === undefined && !slack.isError && discord.data === undefined && !discord.isError;
+  const ready = { slack: slack.data?.bot === true, discord: discord.data?.saved != null };
+  const usable = (place: ChatAnswers['to']) => (place === 'both' ? ready.slack && ready.discord : ready[place]);
+  const none = !checking && !ready.slack && !ready.discord;
+  const { on, to } = saved.chatAnswers;
+
+  return (
+    <SettingRow
+      title="Answer Claude's questions from chat"
+      titleId={ids.title}
+      description="Sends a question and its choices to Slack or Discord, and takes your reply. Commands still wait for you here."
+      control={
+        <Switch
+          aria-labelledby={ids.title}
+          checked={on && !none}
+          disabled={loading || checking || none}
+          onCheckedChange={(next) => {
+            save({ chatAnswers: { on: next, to: usable(to) ? to : ready.slack ? 'slack' : 'discord' } });
+          }}
+        />
+      }
+    >
+      {none ? (
+        <Link to="/settings/$tab" params={{ tab: 'connections' }} className="mt-1.5 text-small text-info underline">
+          Connect Slack or Discord first
+        </Link>
+      ) : (
+        <Select
+          value={to}
+          disabled={loading || checking || !on}
+          onValueChange={(next) => {
+            save({ chatAnswers: { on, to: ChatAnswersSchema.shape.to.parse(next) } });
+          }}
+        >
+          <SelectTrigger aria-label="Send questions to" className="mt-1.5 w-auto min-w-40">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {ChatAnswersSchema.shape.to.options.map((place) => (
+              <SelectItem key={place} value={place} disabled={!usable(place)}>
+                {chatPlaces[place]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+    </SettingRow>
   );
 }
 

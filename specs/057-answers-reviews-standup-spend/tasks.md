@@ -37,7 +37,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 11: api-client: Slack's bot token, and `chatAnswers` in the notification settings (AC-12, AC-14)
       Check: pnpm test packages/api-client/src/chat.test.ts packages/api-client/src/notifications.test.ts
       Files: packages/api-client/src/endpoints/slack.ts, packages/api-client/src/client.ts, the tests
-- [ ] Task 12: Settings › Notifications: "Answer Claude's questions from chat" with its picker, disabled until Slack's bot or Discord is connected (AC-12, AC-17)
+- [x] Task 12: Settings › Notifications: "Answer Claude's questions from chat" with its picker, disabled until Slack's bot or Discord is connected (AC-12, AC-17)
       Check: pnpm test packages/app/src/features/settings/components/notifications-panel.test.tsx
       Files: packages/app/src/features/settings/components/notifications-panel.tsx, the test
 - [ ] Task 13: Settings › Connections › Slack: the bot token field, checked, saved and removed (AC-14)
