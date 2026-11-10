@@ -33,11 +33,13 @@ import {
   DraftedPullRequestSchema,
   DraftedPushSchema,
   ReplyDraftSchema,
+  PullThreadSchema,
   ReviewThreadSchema,
   type DraftedPullRequest,
   type DraftedPush,
   type PullRequestDraft,
   type ReplyDraft,
+  type PullThread,
   type ReviewThread,
 } from './pull-requests.ts';
 import { ProfileSchema, type Profile } from './profile.ts';
@@ -270,6 +272,21 @@ export function makeReviewThread(overrides: Partial<ReviewThread> = {}): ReviewT
     body: 'Use the existing useSelection hook here.',
     reply: 'Done: the list uses useSelection now.',
     resolve: true,
+    ...overrides,
+  });
+}
+
+/** Maria's open thread on line 42 of src/ContentList.tsx in #2841, where the diff can show it (spec 057, B). */
+export function makePullThread(overrides: Partial<PullThread> = {}): PullThread {
+  return PullThreadSchema.parse({
+    id: 'PRRT_kwDOAbc1',
+    path: 'src/ContentList.tsx',
+    line: 42,
+    side: 'new',
+    outdated: false,
+    url: 'https://github.com/acme/web-app/pull/2841#discussion_r1001',
+    comments: [{ author: 'maria', body: 'Use the existing `useSelection` hook here.', at: '2026-11-09T15:00:00.000Z' }],
+    placeable: true,
     ...overrides,
   });
 }

@@ -6,6 +6,7 @@ import {
   mostPullRequestBodyCharacters,
   mostPullRequestTitleCharacters,
   PullRequestDraftAnswerSchema,
+  PullThreadsAnswerSchema,
   PushAnswerSchema,
   PushDraftAnswerSchema,
   PushRequestSchema,
@@ -13,7 +14,7 @@ import {
   ReplyDraftAnswerSchema,
   ReplyRequestSchema,
 } from './index.ts';
-import { makePullRequestDraft, makePushDraft, makeReplyDraft, makeReviewThread } from './testing.ts';
+import { makePullRequestDraft, makePullThread, makePushDraft, makeReplyDraft, makeReviewThread } from './testing.ts';
 
 describe('the draft (spec 014)', () => {
   it('AC-2: carries the title, the description and what will happen', () => {
@@ -237,5 +238,36 @@ describe('replying to reviewers (spec 049)', () => {
   it('has its paths under the session', () => {
     expect(apiRoutes.sessionRepliesDraft).toBe('/api/sessions/:id/replies/draft');
     expect(apiRoutes.sessionReplies).toBe('/api/sessions/:id/replies');
+  });
+});
+
+describe("a pull request's review comments (spec 057, B)", () => {
+  it('AC-18, AC-19: each thread has its place, side, every comment, its link, and whether the diff can show it', () => {
+    const thread = makePullThread();
+    expect(PullThreadsAnswerSchema.parse({ result: 'threads', threads: [thread] })).toEqual({
+      result: 'threads',
+      threads: [thread],
+    });
+    expect(thread).toMatchObject({ side: 'new', outdated: false, placeable: true });
+    expect(thread.comments[0]).toMatchObject({ author: 'maria', at: '2026-11-09T15:00:00.000Z' });
+  });
+
+  it("AC-21: refuses a thread with no comment, or a link that isn't GitHub's", () => {
+    const thread = makePullThread();
+    expect(
+      PullThreadsAnswerSchema.safeParse({ result: 'threads', threads: [{ ...thread, comments: [] }] }).success,
+    ).toBe(false);
+    const elsewhere = { ...thread, url: 'https://example.com/pull/1' };
+    expect(PullThreadsAnswerSchema.safeParse({ result: 'threads', threads: [elsewhere] }).success).toBe(false);
+  });
+
+  it('AC-23, AC-25: says why there are none, or what GitHub said, at its own path', () => {
+    expect(PullThreadsAnswerSchema.parse({ result: 'cannot', reason: 'no_pull_request' })).toMatchObject({
+      reason: 'no_pull_request',
+    });
+    expect(PullThreadsAnswerSchema.parse({ result: 'failed', problem: { kind: 'github_unreachable' } })).toMatchObject({
+      result: 'failed',
+    });
+    expect(apiRoutes.sessionReviewThreads).toBe('/api/sessions/:id/review-threads');
   });
 });

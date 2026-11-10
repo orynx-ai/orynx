@@ -52,7 +52,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 ## B. Review comments in the diff
 
-- [ ] Task 16: Contracts: a pull request's threads with side, outdated, link, every comment and `placeable`, and the route path (AC-18, AC-21)
+- [x] Task 16: Contracts: a pull request's threads with side, outdated, link, every comment and `placeable`, and the route path (AC-18, AC-21)
       Check: pnpm test packages/contracts/src/pull-requests.test.ts; pnpm typecheck
       Files: packages/contracts/src/pull-requests.ts, packages/contracts/src/routes.ts, packages/contracts/src/testing.ts
 - [ ] Task 17: GitHub's thread read gains side, outdated, link and every comment's time; spec 049's draft still reads the last comment (AC-19, AC-21)
