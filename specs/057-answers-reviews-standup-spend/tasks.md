@@ -130,7 +130,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 38: `SessionItem` gains a `detail` slot, with a story for it and a test (AC-42)
       Check: pnpm test packages/ui/src/components/session-item.test.tsx; pnpm gate component-coverage
       Files: packages/ui/src/components/session-item.tsx, packages/ui/src/components/session-item.stories.tsx, packages/ui/src/components/session-item.test.tsx
-- [ ] Task 39: The Sessions page: each row's cost and the Today, This week and This month tiles (AC-42, AC-43, AC-49, AC-50)
+- [x] Task 39: The Sessions page: each row's cost and the Today, This week and This month tiles (AC-42, AC-43, AC-49, AC-50)
       Check: pnpm test packages/app/src/features/sessions/sessions-screen.test.tsx
       Files: packages/app/src/features/sessions/sessions-screen.tsx, packages/app/src/features/sessions/components/spend-tiles.tsx, the tests
 - [ ] Task 40: The limit callout on Home and the Sessions page, and the notification's words (AC-45, AC-46, AC-47, AC-48, AC-49)
