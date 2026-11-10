@@ -29,6 +29,10 @@ export type GitHubPull = z.infer<typeof PullSchema>;
 export type GitHubInbox =
   { ok: true; login: string; reviews: GitHubPull[]; mine: GitHubPull[] } | { ok: false; problem: GitHubProblem };
 
+/** Your pull requests merged on a day (spec 057, C), each by its repository, number and title. */
+export type GitHubMerged =
+  { ok: true; pulls: { repository: string; number: number; title: string }[] } | { ok: false; problem: GitHubProblem };
+
 /** The pull request a composer chip names (spec 015). */
 export interface GitHubPullRef {
   owner: string;
@@ -149,6 +153,8 @@ export interface GitHubClient {
    * 100 of each.
    */
   inbox(token: string): Promise<GitHubInbox>;
+  /** Your pull requests merged on `day`, a calendar day, for the standup (spec 057, C): at most 50. */
+  mergedOn(token: string, day: string): Promise<GitHubMerged>;
   /**
    * One GraphQL query for a pull request a composer chip names (spec 015): its title, description, branches,
    * the head commit's failed checks, its unresolved review threads and its changed files.
@@ -467,6 +473,25 @@ const searchFilters = 'is:pr is:open draft:false archived:false';
  */
 const threadsPerPull = 20;
 
+// The standup (spec 057, C): your pull requests merged on one day.
+const mergedQuery = `
+  query DevHubMergedPulls($search: String!) {
+    search(type: ISSUE, query: $search, first: 50) {
+      nodes { ... on PullRequest { number title repository { nameWithOwner } } }
+    }
+  }
+`;
+const MergedDataSchema = z.object({
+  search: z.object({
+    nodes: z.array(
+      z
+        .object({ number: z.int().positive(), title: z.string(), repository: z.object({ nameWithOwner: z.string() }) })
+        .nullable()
+        .catch(null),
+    ),
+  }),
+});
+
 const inboxQuery = `
   query DevHubInbox($reviews: String!, $mine: String!) {
     viewer { login }
@@ -622,6 +647,23 @@ export function createGitHubClient({
         const header = answer.headers['x-oauth-scopes'];
         const scopes = typeof header === 'string' ? header.split(',').flatMap((scope) => scope.trim() || []) : null;
         return { ok: true, login: user.data.login, scopes };
+      } catch (error) {
+        return failed(error, signal);
+      }
+    },
+
+    async mergedOn(token, day) {
+      const signal = AbortSignal.timeout(timeoutMs);
+      try {
+        const octokit = await octokitFor(token, signal);
+        const data = MergedDataSchema.safeParse(
+          await octokit.graphql(mergedQuery, { search: `is:pr author:@me is:merged merged:${day}` }),
+        );
+        if (!data.success) return notGitHub;
+        const pulls = data.data.search.nodes.flatMap((node) =>
+          node === null ? [] : [{ repository: node.repository.nameWithOwner, number: node.number, title: node.title }],
+        );
+        return { ok: true, pulls };
       } catch (error) {
         return failed(error, signal);
       }

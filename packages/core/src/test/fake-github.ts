@@ -590,3 +590,32 @@ export function acceptingRepository({
     });
   });
 }
+
+/** A pull request of yours GitHub says was merged (spec 057, C). */
+export interface FakeMergedPull {
+  repository: string;
+  number: number;
+  title: string;
+}
+
+/**
+ * GitHub's GraphQL search for your pull requests merged on a day (spec 057, C), for a good token: these, whatever the
+ * day; `searched` collects each search's words. Any other query falls through.
+ */
+export function acceptingMergedSearch(pulls: readonly FakeMergedPull[], searched: string[] = []) {
+  return http.post(graphqlUrl, async ({ request }) => {
+    const sent = (await request.clone().json()) as { query?: unknown; variables?: Record<string, unknown> };
+    if (typeof sent.query !== 'string' || !sent.query.includes('DevHubMergedPulls')) return undefined;
+    if (request.headers.get('authorization') !== `token ${githubToken}`) {
+      return HttpResponse.json({ message: 'Bad credentials', status: '401' }, { status: 401 });
+    }
+    searched.push(String(sent.variables?.['search']));
+    const nodes = pulls.map(({ repository, number, title }) => ({
+      number,
+      title,
+      url: `https://github.com/${repository}/pull/${String(number)}`,
+      repository: { nameWithOwner: repository },
+    }));
+    return HttpResponse.json({ data: { search: { nodes } } });
+  });
+}
