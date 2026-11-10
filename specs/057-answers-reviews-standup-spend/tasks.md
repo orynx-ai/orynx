@@ -7,7 +7,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 1: Contracts for chat answers: `chatAnswers` in Notifications settings (off by default) and its change; `from` on the `answered` step; `unsent` on the `waiting` step; `bot` on Slack's connection, with its route path (AC-11, AC-12)
       Check: pnpm test packages/contracts/src/notifications.test.ts packages/contracts/src/session.test.ts packages/contracts/src/slack.test.ts; pnpm typecheck
       Files: packages/contracts/src/notifications.ts, packages/contracts/src/session.ts, packages/contracts/src/slack.ts, packages/contracts/src/routes.ts, packages/contracts/src/testing.ts
-- [ ] Task 2: Read a chat reply against the waiting question (number, numbers, skip, Other, out of range, several on a one-pick), and write every message Orynx sends (AC-1, AC-3, AC-4, AC-5, AC-9, AC-10)
+- [x] Task 2: Read a chat reply against the waiting question (number, numbers, skip, Other, out of range, several on a one-pick), and write every message Orynx sends (AC-1, AC-3, AC-4, AC-5, AC-9, AC-10)
       Check: pnpm test packages/core/src/chat-answers/reply.test.ts packages/core/src/chat-answers/words.test.ts
       Files: packages/core/src/chat-answers/reply.ts, packages/core/src/chat-answers/words.ts, and their tests
 - [ ] Task 3: Discord's DM: open it, send, and read your messages after Orynx's, including Discord's Reply, with 429 and refused DMs as problems (AC-1, AC-8, AC-13)
