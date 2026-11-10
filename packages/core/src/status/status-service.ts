@@ -20,6 +20,8 @@ export interface StatusServiceOptions {
   claude?: () => Promise<boolean>;
   /** Whether Codex is signed in (spec 052). Not connected when left out. */
   codex?: () => Promise<boolean>;
+  /** The hub shows Claude's questions in the desktop app itself (spec 057, AC-15). */
+  desktopReplies?: boolean;
 }
 
 const notConnected: IntegrationStatus = { state: 'not_connected', detail: null };
@@ -48,6 +50,7 @@ export function createStatusService(options: StatusServiceOptions): StatusServic
         user: { name },
         agents: { claude: { connected: claude }, codex: { connected: codex } },
         integrations: { jira, github, slack, discord },
+        desktopReplies: options.desktopReplies ?? false,
       };
     },
   };

@@ -11,7 +11,7 @@ import {
   Ticket01Icon,
   Tick02Icon,
 } from '@hugeicons/core-free-icons';
-import type { Notification, NotificationKind } from '@devhub/contracts';
+import { pausedNow, type Notification, type NotificationKind } from '@devhub/contracts';
 import {
   Button,
   Icon,
@@ -40,7 +40,7 @@ import {
   useNotificationSettings,
   useNotifications,
 } from '../queries.ts';
-import { pausedNow, pauseUntil } from '../quiet.ts';
+import { pauseUntil } from '../quiet.ts';
 import { NotificationActions } from './notification-actions.tsx';
 import {
   aboutOpenSession,

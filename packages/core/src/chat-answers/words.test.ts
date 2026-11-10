@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { makeQuestionApproval } from '@devhub/contracts/testing';
-import { approvalPing, questionMessage, severalQuestions } from './words.ts';
+import { approvalPing, desktopQuestion, questionMessage, severalQuestions } from './words.ts';
 
 const where = { ticket: 'PROJ-1423', title: 'Add bulk archive' };
 const [question] = makeQuestionApproval().questions;
@@ -49,5 +49,24 @@ describe('what Orynx sends to Slack or Discord (spec 057, A)', () => {
 
   it('AC-10: an approval says Claude is waiting, and never what it wants to run', () => {
     expect(approvalPing(where)).toBe('Claude is waiting for you in PROJ-1423 · Add bulk archive. Answer it in Orynx.');
+  });
+
+  it('AC-15: the desktop notification titles the question, and its body has the session, the question and its choices', () => {
+    expect(desktopQuestion(where, [question])).toEqual({
+      title: 'Claude has a question',
+      body: [
+        'PROJ-1423 · Add bulk archive',
+        'Which date library should we use?',
+        '1. date-fns: Already a dependency',
+        '2. Day.js: Smaller, a new dependency',
+        '3. Temporal: Built in, needs a polyfill',
+      ].join('\n'),
+      reply: true,
+    });
+    expect(desktopQuestion(where, [question, question, question])).toEqual({
+      title: 'Claude has 3 questions',
+      body: 'PROJ-1423 · Add bulk archive\nAnswer them in Orynx.',
+      reply: false,
+    });
   });
 });

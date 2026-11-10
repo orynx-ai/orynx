@@ -50,5 +50,10 @@ export const StatusSchema = z.object({
     slack: IntegrationStatusSchema,
     discord: IntegrationStatusSchema,
   }),
+  /**
+   * The hub runs in the desktop app on macOS, so it shows Claude's questions with a reply box itself (spec 057, AC-15),
+   * and the page leaves them out of its own desktop notifications. False in a status from before spec 057.
+   */
+  desktopReplies: z.boolean().default(false),
 });
 export type Status = z.infer<typeof StatusSchema>;

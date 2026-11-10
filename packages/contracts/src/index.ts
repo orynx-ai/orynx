@@ -15,6 +15,8 @@ export * from './inbox.ts';
 export * from './jira.ts';
 export * from './jira-tickets.ts';
 export * from './notifications.ts';
+export * from './notification-delivery.ts';
+export * from './desktop-questions.ts';
 export * from './orynx-skills.ts';
 export * from './orynx-tickets.ts';
 export * from './ports.ts';

@@ -23,7 +23,7 @@ The five parts go in the spec's order, A to E. Each part runs contracts → core
      - It's tested over the real session service, with MSW for Slack and Discord and a fake clock.
    - **The desktop channel.**
      - The hub posts the question to Electron over the utility process's port (the same bridge spec 045's updates use). Electron shows a macOS notification with `hasReply` and posts the reply back. The window still gets no preload.
-     - The hub marks the approval's notification `native`, so the page doesn't raise a second desktop notification.
+     - Status says `desktopReplies`, so the page leaves questions out of its own desktop notifications instead of raising a second one.
    - **App.** The Notifications row, the Slack bot token field, the step's words and the waiting step's failure line.
    - **e2e.** One test through the fake Discord in the tools hub's preload.
 2. **B. Review comments in the diff**

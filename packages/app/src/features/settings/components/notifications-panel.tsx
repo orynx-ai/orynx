@@ -6,6 +6,7 @@ import {
   defaultNotificationSettings,
   NotificationSoundSchema,
   PauseLengthSchema,
+  pausedNow,
   QuietHoursSchema,
   type NotificationEvent,
   type PauseLength,
@@ -37,7 +38,7 @@ import {
   TableHeader,
   TableRow,
 } from '@devhub/ui';
-import { pausedNow, pauseUntil } from '../../notifications/quiet.ts';
+import { pauseUntil } from '../../notifications/quiet.ts';
 import { playSound, soundNames, type PlayableSound } from '../../notifications/sounds.ts';
 import { useNow } from '../../../words/use-now.ts';
 import { askDesktopPermission, desktopPermission, type DesktopPermission } from '../../notifications/desktop.ts';

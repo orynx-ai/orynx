@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useRouterState } from '@tanstack/react-router';
-import { defaultNotificationSettings, type Notification } from '@devhub/contracts';
+import { defaultNotificationSettings, delivery, type Notification } from '@devhub/contracts';
 import { Notification01Icon } from '@hugeicons/core-free-icons';
 import { Toast, ToastRegion } from '@devhub/ui';
 import { usePlatform } from '../../../platform.tsx';
 import { announce, becomeSpeaker, watchLooking } from '../alerts.ts';
 import { useMarkNotificationsRead, useNotificationSettings, useNotifications } from '../queries.ts';
-import { delivery } from '../quiet.ts';
 import { useTestPopUpStore } from '../store.ts';
 import { aboutOpenSession, notificationPlace, notificationWords, testWords } from '../words.ts';
 import { isWaiting, notificationLooks } from './notification-centre.tsx';

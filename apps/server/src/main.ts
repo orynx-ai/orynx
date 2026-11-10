@@ -29,6 +29,7 @@ import { startLan } from './lan.ts';
 import { createSessionToken, removeRuntimeFile, writeRuntimeFile } from './runtime-file.ts';
 import { trustSystemCertificates } from './system-certificates.ts';
 import { tokenNotices } from './token-notices.ts';
+import { desktopQuestions } from './desktop-questions.ts';
 import type { ParentPort } from './desktop-updates.ts';
 import { updateHost } from './updates-host.ts';
 import { serveWeb } from './web.ts';
@@ -77,8 +78,9 @@ const updateNotices: string[] = [];
 let logUpdate = (line: string): void => {
   updateNotices.push(line);
 };
+const desktopPort = (process as NodeJS.Process & { parentPort?: ParentPort }).parentPort ?? null;
 const updates = await updateHost({
-  desktop: (process as NodeJS.Process & { parentPort?: ParentPort }).parentPort ?? null,
+  desktop: desktopPort,
   service: config.service,
   version: packageJson.version,
   repo: join(here, '..', '..', '..'),
@@ -91,6 +93,8 @@ const updates = await updateHost({
 
 const app = await createServer({
   token,
+  // A question's notification takes a reply only on macOS, which Electron alone shows there (spec 057, AC-15).
+  ...(desktopPort !== null && process.platform === 'darwin' ? { desktopQuestions: desktopQuestions(desktopPort) } : {}),
   port: config.port,
   version: packageJson.version,
   // Memory only when DEVHUB_KEYCHAIN=memory, which the e2e run sets.

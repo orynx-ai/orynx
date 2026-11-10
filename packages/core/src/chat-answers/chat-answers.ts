@@ -1,17 +1,44 @@
-import type { NotificationSettings, Session, SessionApproval, SessionQuestion } from '@devhub/contracts';
+import {
+  delivery,
+  type DesktopQuestion,
+  type NotificationSettings,
+  type Session,
+  type SessionApproval,
+  type SessionQuestion,
+} from '@devhub/contracts';
 import type { DiscordClient, DiscordProblem } from '../integrations/discord/client.ts';
 import type { DiscordConnectionService } from '../integrations/discord/connection.ts';
 import type { SlackClient, SlackProblem } from '../integrations/slack/client.ts';
 import type { SlackConnectionService } from '../integrations/slack/connection.ts';
 import type { SessionReport, SessionService } from '../sessions/session-service.ts';
 import { readReply } from './reply.ts';
-import { approvalPing, chatWords, questionMessage, severalQuestions, type ChatWhere } from './words.ts';
+import {
+  approvalPing,
+  chatWords,
+  desktopQuestion,
+  questionMessage,
+  severalQuestions,
+  type ChatWhere,
+} from './words.ts';
 
 type ChatService = 'slack' | 'discord';
 
-/** Orynx's message about one waiting call in one service: Slack's ts (its thread) or Discord's message id. */
+/**
+ * The desktop app's notifications, which the hub shows itself on macOS (spec 057, AC-15): over the utility process's
+ * port, as apps/server builds it.
+ */
+export interface DesktopQuestions {
+  show(question: DesktopQuestion): void;
+  withdraw(id: string): void;
+  onReply(listener: (id: string, text: string) => void): void;
+}
+
+/**
+ * Orynx's message about one waiting call in one place: Slack's ts (its thread), Discord's message id, or the desktop
+ * notification's id.
+ */
 interface Sent {
-  service: ChatService;
+  service: ChatService | 'notification';
   channel: string;
   message: string;
   /** Slack: the last reply read in the thread, so each one is read once. */
@@ -33,8 +60,11 @@ export interface ChatAnswersOptions {
   sessions: Pick<SessionService, 'respond' | 'unsent'>;
   slack: { client: SlackClient; connection: Pick<SlackConnectionService, 'botCredentials'> };
   discord: { client: DiscordClient; connection: Pick<DiscordConnectionService, 'credentials'> };
+  /** The desktop app's notifications, when the hub runs in it on macOS. */
+  desktop?: DesktopQuestions;
   /** How often a sent question's thread is read for your reply: 15 s. */
   everyMs?: number;
+  now?: () => number;
   /** A service turned a message down; for the terminal and Sync activity. Never holds a token. */
   onProblem?: (service: ChatService, problem: SlackProblem | DiscordProblem) => void;
   onError?: (error: unknown) => void;
@@ -126,8 +156,19 @@ export function createChatAnswers(options: ChatAnswersOptions): ChatAnswersServi
     return opened.ok ? { service, channel: opened.channel, message: posted.id, after: posted.id } : 'failed';
   }
 
-  /** Says `text` where `sent` went: in Slack's thread, or as a Reply on Discord (to `replyTo`, else Orynx's message). */
+  /** What each desktop notification showed, so it can be shown again with a line asking again. */
+  const shown = new Map<string, DesktopQuestion>();
+
+  /**
+   * Says `text` where `sent` went: in Slack's thread, as a Reply on Discord (to `replyTo`, else Orynx's message), or as
+   * the desktop notification's title, shown again. Only asking again goes to the desktop.
+   */
   async function say(sent: Sent, text: string, replyTo?: string): Promise<void> {
+    if (sent.service === 'notification') {
+      const question = shown.get(sent.message);
+      if (question !== undefined && text !== chatWords.sent) options.desktop?.show({ ...question, title: text });
+      return;
+    }
     if (sent.service === 'slack') {
       const bot = await slackBot();
       if (bot !== null) await slack.client.sendDm(bot.token, sent.channel, text, sent.message);
@@ -138,11 +179,13 @@ export function createChatAnswers(options: ChatAnswersOptions): ChatAnswersServi
   }
 
   async function send(session: Session, approval: SessionApproval): Promise<void> {
-    const { chatAnswers } = await options.settings.read();
+    const settings = await options.settings.read();
+    const { chatAnswers } = settings;
     if (!chatAnswers.on) return;
     const { text, question } = messageFor(whereOf(session), approval);
     const call: Told = { session: session.id, approvalId: approval.id, question, sent: [], answeredHere: false };
     told.set(key(session.id, approval.id), call);
+    showOnDesktop(session, approval, settings, call);
     // Discord reads one DM for every question: from this one on, unless an earlier one still waits there.
     const readingDiscord = [...told.values()].some(
       (each) => each !== call && each.question !== null && each.sent.some((sent) => sent.service === 'discord'),
@@ -156,7 +199,36 @@ export function createChatAnswers(options: ChatAnswersOptions): ChatAnswersServi
       if (service === 'discord' && question !== null && !readingDiscord) discordAfter = sent.message;
     }
     if (unsent.length > 0) await sessions.unsent(session.id, approval.id, unsent);
-    if (question !== null && call.sent.length > 0) start();
+    if (question !== null && call.sent.some((sent) => sent.service !== 'notification')) start();
+  }
+
+  /** A question call in the desktop app, as Settings › Notifications lets a desktop notification through (AC-15). */
+  function showOnDesktop(
+    session: Session,
+    approval: SessionApproval,
+    settings: NotificationSettings,
+    call: Told,
+  ): void {
+    if (options.desktop === undefined || approval.kind !== 'question') return;
+    const what = {
+      kind: 'approval' as const,
+      session: { id: session.id, title: session.title, source: session.source },
+      approvalId: approval.id,
+      about: 'question' as const,
+      command: null,
+      waiting: true,
+    };
+    if (!delivery(what, settings, new Date(options.now?.() ?? Date.now())).desktop) return;
+    const id = key(session.id, approval.id);
+    const question: DesktopQuestion = {
+      id,
+      ...desktopQuestion(whereOf(session), approval.questions),
+      path: `/sessions/${session.id}`,
+      onlyInBackground: settings.onlyInBackground,
+    };
+    shown.set(id, question);
+    options.desktop.show(question);
+    call.sent.push({ service: 'notification', channel: '', message: id, after: id });
   }
 
   /** Your reply to `call`'s question: an answer or Skip goes to Claude, anything else is asked again. */
@@ -243,7 +315,10 @@ export function createChatAnswers(options: ChatAnswersOptions): ChatAnswersServi
     } finally {
       reading = false;
     }
-    if (![...told.values()].some((call) => call.question !== null)) stop();
+    const threads = [...told.values()].some(
+      (call) => call.question !== null && call.sent.some((sent) => sent.service !== 'notification'),
+    );
+    if (!threads) stop();
   }
 
   function start(): void {
@@ -256,6 +331,12 @@ export function createChatAnswers(options: ChatAnswersOptions): ChatAnswersServi
     if (timer !== null) clearInterval(timer);
     timer = null;
   }
+
+  options.desktop?.onReply((id, text) => {
+    const call = told.get(id);
+    const sent = call?.sent.find((each) => each.service === 'notification');
+    if (call !== undefined && sent !== undefined) safely(() => take(call, sent, text, id));
+  });
 
   return {
     sessionChanged(before, after) {
@@ -271,9 +352,14 @@ export function createChatAnswers(options: ChatAnswersOptions): ChatAnswersServi
       const call = told.get(key(report.session, report.approval));
       if (call === undefined) return;
       told.delete(key(report.session, report.approval));
+      for (const sent of call.sent) {
+        if (sent.service !== 'notification') continue;
+        shown.delete(sent.message);
+        options.desktop?.withdraw(sent.message);
+      }
       if (call.answeredHere || call.question === null) return;
       const words = report.by === 'you' ? chatWords.answeredInOrynx : chatWords.stopped;
-      for (const sent of call.sent) safely(() => say(sent, words));
+      for (const sent of call.sent) if (sent.service !== 'notification') safely(() => say(sent, words));
     },
 
     async close() {

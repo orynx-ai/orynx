@@ -35,6 +35,8 @@ export function desktopUpdateHost({ port, version, logFile, log }: DesktopUpdate
   }
 
   port.on('message', ({ data }) => {
+    // The port also carries Claude's questions (spec 057); only the updater's messages are read here.
+    if (typeof data === 'object' && data !== null && 'type' in data && data.type !== 'update-state') return;
     const message = DesktopUpdateStateSchema.safeParse(data);
     if (!message.success) {
       log("Orynx couldn't read a message from the desktop app's updater.");

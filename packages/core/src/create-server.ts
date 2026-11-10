@@ -23,7 +23,7 @@ import { createSyncActivityService } from './inbox/sync-activity-service.ts';
 import { registerLocalOnly } from './plugins/local-only.ts';
 import { createNotificationService } from './notifications/notification-service.ts';
 import { createNotificationSettingsService } from './notifications/notification-settings.ts';
-import { createChatAnswers } from './chat-answers/chat-answers.ts';
+import { createChatAnswers, type DesktopQuestions } from './chat-answers/chat-answers.ts';
 import { createPreferencesService } from './preferences/preferences-service.ts';
 import { createRepositoryService, FolderRejectedError } from './repositories/repository-service.ts';
 import { createSkillStore, orynxSkillsFolder, SkillRejectedError } from './skills/skill-store.ts';
@@ -107,6 +107,8 @@ export interface CoreOptions {
   eventsKeepAliveMs?: number;
   /** How often a question sent to Slack or Discord is read for your reply (spec 057); 15 s when left out. */
   chatAnswersEveryMs?: number;
+  /** The desktop app's notifications, when this hub runs in it on macOS (spec 057, AC-15). */
+  desktopQuestions?: DesktopQuestions;
   /** Where sessions are kept. Hosts pass the store under DEVHUB_HOME (spec 011); tests get memory. */
   sessions?: SessionRecords;
   /** Orynx's own tickets (spec 037). Hosts pass `<DEVHUB_HOME>/tickets.json`; tests get memory. */
@@ -523,6 +525,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     slack: { client: slackClient, connection: slack },
     discord: { client: discordClient, connection: discord },
     ...(options.chatAnswersEveryMs === undefined ? {} : { everyMs: options.chatAnswersEveryMs }),
+    ...(options.desktopQuestions === undefined ? {} : { desktop: options.desktopQuestions }),
     onProblem: (service, problem) => {
       app.log.warn({ [service]: problem }, "A message about Claude's question couldn't be sent");
     },
@@ -673,6 +676,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     discord: () => discord.status(),
     claude: () => claude.connected(),
     codex: () => codexLogin.connected(),
+    desktopReplies: options.desktopQuestions !== undefined,
   });
 
   await app.register(

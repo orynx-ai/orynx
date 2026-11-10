@@ -1,4 +1,4 @@
-import type { SessionQuestion } from '@devhub/contracts';
+import type { DesktopQuestion, SessionQuestion } from '@devhub/contracts';
 
 /** The session a message is about: its ticket, when it has one, and its title. */
 export interface ChatWhere {
@@ -21,11 +21,16 @@ export const chatWords = {
   useReply: "Use Reply on the question you're answering.",
 };
 
-/** A call with one question (AC-1): who asks, the question, its choices numbered with their descriptions, and how to reply. */
-export function questionMessage(where: ChatWhere, question: SessionQuestion): string {
-  const choices = question.options.map(
+/** A question's choices, numbered, each with its description. */
+function choicesOf(question: SessionQuestion): string[] {
+  return question.options.map(
     ({ label, description }, index) => `${String(index + 1)}. ${label}${description === '' ? '' : `: ${description}`}`,
   );
+}
+
+/** A call with one question (AC-1): who asks, the question, its choices numbered with their descriptions, and how to reply. */
+export function questionMessage(where: ChatWhere, question: SessionQuestion): string {
+  const choices = choicesOf(question);
   const how = question.multiSelect
     ? 'Reply with a number, numbers like 1, 3, your own answer, or skip.'
     : 'Reply with a number, your own answer, or skip.';
@@ -40,4 +45,27 @@ export function severalQuestions(where: ChatWhere, count: number): string {
 /** A command, edit or other approval (AC-10, Q1): a ping that never says what Claude wants to do. */
 export function approvalPing(where: ChatWhere): string {
   return `Claude is waiting for you in ${named(where)}. Answer it in Orynx.`;
+}
+
+/**
+ * The desktop app's notification for a question call (AC-15): one question with its numbered choices and a reply box,
+ * or how many there are, to answer in Orynx.
+ */
+export function desktopQuestion(
+  where: ChatWhere,
+  questions: readonly SessionQuestion[],
+): Pick<DesktopQuestion, 'title' | 'body' | 'reply'> {
+  const [only, ...more] = questions;
+  if (only === undefined || more.length > 0) {
+    return {
+      title: `Claude has ${String(questions.length)} questions`,
+      body: `${named(where)}\nAnswer them in Orynx.`,
+      reply: false,
+    };
+  }
+  return {
+    title: 'Claude has a question',
+    body: [named(where), only.question, ...choicesOf(only)].join('\n'),
+    reply: true,
+  };
 }

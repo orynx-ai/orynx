@@ -1,6 +1,5 @@
-import type { Notification as OrynxNotification, NotificationSettings } from '@devhub/contracts';
+import { delivery, type Notification as OrynxNotification, type NotificationSettings } from '@devhub/contracts';
 import { desktopPermission } from './desktop.ts';
-import { delivery } from './quiet.ts';
 import { playSound } from './sounds.ts';
 import { notificationWords } from './words.ts';
 

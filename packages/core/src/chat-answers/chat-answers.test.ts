@@ -4,10 +4,18 @@ import { join } from 'node:path';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import { apiRoutes, SessionSchema, tokenHeader, type ChatAnswers } from '@devhub/contracts';
+import {
+  apiRoutes,
+  SessionSchema,
+  StatusSchema,
+  tokenHeader,
+  type ChatAnswers,
+  type DesktopQuestion,
+} from '@devhub/contracts';
 import { gitEnvironment } from '../agents/agent-environment.ts';
 import { createClaudeCode } from '../agents/claude/claude-code.ts';
 import { createServer } from '../create-server.ts';
+import type { DesktopQuestions } from './chat-answers.ts';
 import { createMemoryKeychain } from '../secrets/memory-keychain.ts';
 import { openFileSessionStore } from '../sessions/file-session-store.ts';
 import { createMemorySettingsStore } from '../settings/settings-store.ts';
@@ -73,15 +81,41 @@ const library = {
 const asks: FakeTurn[] = [{ tool: 'AskUserQuestion', input: { questions: [library] } }, { finish: 'Done.' }];
 
 /** A hub with one folder, Slack (with its bot) and Discord connected, and a session started from the composer. */
+/** The desktop app's notifications, outside the hub: what it was asked to show, and your reply in one. */
+function fakeDesktop() {
+  const shown: DesktopQuestion[] = [];
+  const withdrawn: string[] = [];
+  const listeners: ((id: string, text: string) => void)[] = [];
+  const questions: DesktopQuestions = {
+    show: (question) => shown.push(question),
+    withdraw: (id) => withdrawn.push(id),
+    onReply: (listener) => listeners.push(listener),
+  };
+  return {
+    questions,
+    shown,
+    withdrawn,
+    reply: (id: string, text: string) => {
+      for (const listener of listeners) listener(id, text);
+    },
+  };
+}
+
 async function hub({
   script,
   chat,
   dmsClosed = false,
+  desktop,
+  notifications = {},
 }: {
   script: readonly FakeTurn[];
   chat: ChatAnswers;
   /** You don't take the Discord bot's DMs. */
   dmsClosed?: boolean;
+  /** The hub runs in the desktop app on macOS. */
+  desktop?: DesktopQuestions;
+  /** More of Settings › Notifications, as saved. */
+  notifications?: Record<string, unknown>;
 }) {
   const repos = await repositories();
   home = await realpath(await mkdtemp(join(tmpdir(), 'devhub-chat-')));
@@ -111,7 +145,11 @@ async function hub({
       slack: { workspace: 'Acme', url: 'https://acme.slack.com/', userId: slackUserId, name: 'Neha K.' },
       slackBot: { url: 'https://acme.slack.com/' },
       discord: { bot: 'Orynx', userId: discordUserId },
-      notifications: { chatAnswers: chat },
+      notifications: {
+        chatAnswers: chat,
+        quietHours: { on: false, from: '19:00', to: '09:00', days: [true, true, true, true, true, true, true] },
+        ...notifications,
+      },
     }),
     dataDir: home,
     userHome: repos.root,
@@ -129,6 +167,7 @@ async function hub({
     },
     gitEnvironment: gitEnvironment(repos.env),
     chatAnswersEveryMs: 50,
+    ...(desktop === undefined ? {} : { desktopQuestions: desktop }),
   });
   app = server;
   const added = await server.inject({
@@ -167,7 +206,9 @@ async function hub({
       payload: { decision: 'answer', answers: [{ picked: [picked], other: null }] },
     });
   const stop = () => server.inject({ method: 'POST', url: apiRoutes.sessionStop.replace(':id', sessionId), headers });
-  return { discord, slack, session, waiting, start, answerInOrynx, stop, sdk };
+  const status = async () =>
+    StatusSchema.parse((await server.inject({ method: 'GET', url: apiRoutes.status, headers })).json());
+  return { discord, slack, session, waiting, start, answerInOrynx, stop, status, sdk };
 }
 
 describe.skipIf(process.platform === 'win32')("answering Claude's question from chat (spec 057, A)", () => {
@@ -380,5 +421,68 @@ describe.skipIf(process.platform === 'win32')("answering Claude's question from 
     });
     expect((await session()).approvals).toHaveLength(1);
     expect(discord.sent()).toEqual([]);
+  });
+
+  it('AC-15: in the desktop app on macOS, the question shows with a reply box, and typing a number answers it', async () => {
+    const desktop = fakeDesktop();
+    const { session, waiting, status } = await hub({
+      script: asks,
+      chat: { on: true, to: 'discord' },
+      desktop: desktop.questions,
+    });
+    const [approval] = await waiting();
+    expect((await status()).desktopReplies).toBe(true);
+    await vi.waitFor(() => {
+      expect(desktop.shown).toHaveLength(1);
+    });
+    expect(desktop.shown[0]).toMatchObject({
+      title: 'Claude has a question',
+      reply: true,
+      path: `/sessions/${(await session()).id}`,
+      onlyInBackground: true,
+    });
+    expect(desktop.shown[0]?.body).toContain('2. Day.js: Smaller, a new dependency');
+
+    desktop.reply(desktop.shown[0]?.id ?? '', '7');
+    await vi.waitFor(() => {
+      expect(desktop.shown.at(-1)?.title).toBe('Pick 1 to 3, or type your answer.');
+    });
+    desktop.reply(desktop.shown[0]?.id ?? '', '2');
+    await vi.waitFor(async () => {
+      expect((await session()).activities).toContainEqual(
+        expect.objectContaining({ kind: 'answered', from: 'notification' }),
+      );
+    });
+    expect((await session()).approvals.map(({ id }) => id)).not.toContain(approval?.id);
+  });
+
+  it('AC-15: answered elsewhere, the notification goes', async () => {
+    const desktop = fakeDesktop();
+    const { waiting, answerInOrynx } = await hub({
+      script: asks,
+      chat: { on: true, to: 'discord' },
+      desktop: desktop.questions,
+    });
+    const [approval] = await waiting();
+    await vi.waitFor(() => {
+      expect(desktop.shown).toHaveLength(1);
+    });
+    await answerInOrynx(approval?.id ?? '', 'date-fns');
+    await vi.waitFor(() => {
+      expect(desktop.withdrawn).toEqual([desktop.shown[0]?.id]);
+    });
+  });
+
+  it('AC-15: with desktop notifications off in Settings, no notification shows', async () => {
+    const off = fakeDesktop();
+    const quiet = await hub({
+      script: asks,
+      chat: { on: true, to: 'discord' },
+      desktop: off.questions,
+      notifications: { desktop: false },
+    });
+    await quiet.waiting();
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(off.shown).toEqual([]);
   });
 });

@@ -28,9 +28,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 8: Answered in Orynx, stopped, two waiting on Discord, and a failed send, each with its reply or line (AC-6, AC-7, AC-8, AC-13)
       Check: pnpm test packages/core/src/chat-answers/chat-answers.test.ts
       Files: packages/core/src/chat-answers/chat-answers.ts, the test
-- [ ] Task 9: The hub's desktop channel: send a question to the desktop app over its port, take its reply, mark the notification `native`, and share the page's "should this alert" rule through contracts (AC-15)
+- [x] Task 9: The hub's desktop channel: send a question to the desktop app over its port, take its reply, say `desktopReplies` in status, and share the page's "should this alert" rule through contracts (AC-15)
       Check: pnpm test apps/server/src/desktop-questions.test.ts packages/contracts/src/notifications.test.ts packages/app/src/features/notifications/alerts.test.ts
-      Files: apps/server/src/desktop-questions.ts, apps/server/src/main.ts, packages/contracts/src/notifications.ts, packages/app/src/features/notifications/alerts.ts, the tests
+      Files: apps/server/src/desktop-questions.ts, apps/server/src/main.ts, packages/contracts/src/notification-delivery.ts, packages/contracts/src/desktop-questions.ts, packages/contracts/src/status.ts, packages/core/src/chat-answers/chat-answers.ts, packages/app/src/features/notifications/quiet.ts, the tests
 - [ ] Task 10: The desktop app shows the question with a reply box on macOS and posts the reply back (AC-15)
       Check: pnpm test apps/desktop/src/questions.test.ts
       Files: apps/desktop/src/questions.ts, apps/desktop/src/main.ts, the test
@@ -43,7 +43,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [ ] Task 13: Settings › Connections › Slack: the bot token field, checked, saved and removed (AC-14)
       Check: pnpm test packages/app/src/features/settings/components/chat-connection-form.test.tsx
       Files: packages/app/src/features/settings/components/chat-connection-form.tsx, packages/app/src/features/settings/components/connection-words.ts, the test
-- [ ] Task 14: The steps say where you answered from, and a waiting step says it couldn't be sent; the page skips a `native` desktop notification (AC-2, AC-13, AC-15)
+- [ ] Task 14: The steps say where you answered from, and a waiting step says it couldn't be sent; the page skips a question's desktop notification when status says `desktopReplies` (AC-2, AC-13, AC-15)
       Check: pnpm test packages/app/src/features/sessions/step-words.test.ts packages/app/src/features/sessions/components/session-progress.test.tsx packages/app/src/features/notifications/alerts.test.ts
       Files: packages/app/src/features/sessions/step-words.ts, packages/app/src/features/notifications/alerts.ts, the tests
 - [ ] Task 15: e2e: a question answered from the fake Discord, then one answered in Orynx first (AC-1, AC-2, AC-6)

@@ -13,6 +13,12 @@ describe('StatusSchema', () => {
     expect(StatusSchema.safeParse(makeStatus()).success).toBe(true);
   });
 
+  it("057 AC-15: says whether the hub shows Claude's questions itself, and a status from before spec 057 doesn't", () => {
+    const { desktopReplies: _, ...before } = makeStatus();
+    expect(StatusSchema.parse(before).desktopReplies).toBe(false);
+    expect(StatusSchema.parse({ ...before, desktopReplies: true }).desktopReplies).toBe(true);
+  });
+
   it('rejects an unknown connection state', () => {
     const status = makeStatus();
     const result = StatusSchema.safeParse({
