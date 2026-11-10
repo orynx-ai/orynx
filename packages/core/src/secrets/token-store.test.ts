@@ -177,4 +177,16 @@ describe("token store when the keychain can't be reached", () => {
       expect(everything).not.toContain(otherJiraToken);
     }
   });
+
+  it("057 AC-14: keeps Slack's bot token apart from your own Slack token", async () => {
+    const { store } = setup();
+    await store.save('slack', 'slack-user-token-for-tests');
+    await store.save('slack_bot', 'slack-bot-token-for-tests');
+
+    expect(await store.read('slack')).toEqual({ token: 'slack-user-token-for-tests', source: 'keychain' });
+    expect(await store.read('slack_bot')).toEqual({ token: 'slack-bot-token-for-tests', source: 'keychain' });
+    await store.remove('slack_bot');
+    expect(await store.read('slack_bot')).toBeNull();
+    expect(await store.read('slack')).not.toBeNull();
+  });
 });

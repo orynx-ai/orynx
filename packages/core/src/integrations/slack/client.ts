@@ -69,7 +69,35 @@ export interface SlackClient {
     chip: { channel: string; ts: string },
     text: string,
   ): Promise<PostedReply>;
+  /** Asks Slack that the token is a bot's with {@link slackBotScopes} (spec 057, AC-14), and names its workspace. */
+  checkBot(token: string): Promise<{ ok: true; url: string } | { ok: false; problem: SlackProblem }>;
+  /** Opens the bot's DM with you. */
+  openDm(token: string, userId: string): Promise<{ ok: true; channel: string } | { ok: false; problem: SlackProblem }>;
+  /** Sends `text` to the DM as the bot, in `threadTs`'s thread when given; answers its ts. */
+  sendDm(
+    token: string,
+    channel: string,
+    text: string,
+    threadTs?: string,
+  ): Promise<{ ok: true; ts: string } | { ok: false; problem: SlackProblem }>;
+  /** The replies in `threadTs`'s thread after `after`, oldest first. */
+  repliesAfter(
+    token: string,
+    channel: string,
+    threadTs: string,
+    after: string,
+  ): Promise<{ ok: true; messages: DmReply[] } | { ok: false; problem: SlackProblem }>;
 }
+
+/** A reply in the bot's DM thread with you (spec 057, A): who wrote it and its words, as plain text. */
+export interface DmReply {
+  ts: string;
+  author: string;
+  text: string;
+}
+
+/** What Orynx's bot needs to DM you and read your replies (spec 057, Q2). */
+export const slackBotScopes = ['chat:write', 'im:write', 'im:history'] as const;
 
 /** A reply posted, with its link, or the tool's own words for why not (spec 016, AC-41, AC-42). */
 export type PostedReply = { ok: true; url: string } | { ok: false; reason: string };
@@ -134,6 +162,11 @@ function threadOf(match: Match): string | null {
 }
 
 const day = 86_400_000;
+
+/** A message's place in time: its ts as one whole number, since a double can't hold all its digits. */
+function order(ts: string): bigint {
+  return BigInt(ts.replace('.', ''));
+}
 
 /** Slack's words for a thread or channel that isn't there, or that the token can't read. */
 const missing = new Set(['channel_not_found', 'thread_not_found', 'message_not_found', 'not_in_channel']);
@@ -316,6 +349,60 @@ export function createSlackClient({ timeoutMs = 10_000, now = Date.now }: SlackC
       } catch (error) {
         const problem = problemOf(error, now);
         return { ok: false, reason: problem.kind === 'slack_error' ? problem.error : describeProblemWord(problem) };
+      }
+    },
+
+    async checkBot(token) {
+      try {
+        const who = await call(token, 'auth.test');
+        if (typeof who['bot_id'] !== 'string') return { ok: false, problem: { kind: 'rejected' } };
+        const held = new Set(who.response_metadata?.scopes ?? []);
+        const missing = slackBotScopes.filter((scope) => !held.has(scope));
+        if (missing.length > 0) return { ok: false, problem: { kind: 'missing_scopes', missing } };
+        return { ok: true, url: String(who['url']) };
+      } catch (error) {
+        return failed(error);
+      }
+    },
+
+    async openDm(token, userId) {
+      try {
+        const opened = await call(token, 'conversations.open', { users: userId });
+        const channel = z.object({ id: z.string() }).safeParse(opened['channel']);
+        return channel.success
+          ? { ok: true, channel: channel.data.id }
+          : { ok: false, problem: { kind: 'slack_error', error: 'channel_not_found' } };
+      } catch (error) {
+        return failed(error);
+      }
+    },
+
+    async sendDm(token, channel, text, threadTs) {
+      try {
+        const posted = await call(token, 'chat.postMessage', {
+          channel,
+          // Slack reads <…> as mentions and links, so Claude's words go as written (spec 057, A).
+          text: text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'),
+          ...(threadTs === undefined ? {} : { thread_ts: threadTs }),
+          unfurl_links: false,
+          unfurl_media: false,
+        });
+        return { ok: true, ts: String(posted['ts']) };
+      } catch (error) {
+        return failed(error);
+      }
+    },
+
+    async repliesAfter(token, channel, threadTs, after) {
+      try {
+        const answer = await call(token, 'conversations.replies', { channel, ts: threadTs, oldest: after });
+        const messages = readList(RawMessageSchema, answer['messages'])
+          .filter((each) => order(each.ts) > order(after) && each.ts !== threadTs)
+          .sort((a, b) => (order(a.ts) < order(b.ts) ? -1 : 1))
+          .map((each) => ({ ts: each.ts, author: each.user ?? '', text: plainText(each.text ?? '', new Map()) }));
+        return { ok: true, messages };
+      } catch (error) {
+        return failed(error);
       }
     },
 

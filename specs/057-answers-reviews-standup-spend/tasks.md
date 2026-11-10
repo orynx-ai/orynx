@@ -13,7 +13,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 3: Discord's DM: open it, send, and read your messages after Orynx's, including Discord's Reply, with 429 and refused DMs as problems (AC-1, AC-8, AC-13)
       Check: pnpm test packages/core/src/integrations/discord/client.test.ts packages/core/src/integrations/discord/no-token-leaks.test.ts
       Files: packages/core/src/integrations/discord/client.ts, packages/core/src/test/fake-discord.ts, the tests
-- [ ] Task 4: Slack's bot: check a bot token, open the DM, send, and read the thread's replies; the bot token as its own keychain item (AC-14)
+- [x] Task 4: Slack's bot: check a bot token, open the DM, send, and read the thread's replies; the bot token as its own keychain item (AC-14)
       Check: pnpm test packages/core/src/integrations/slack/client.test.ts packages/core/src/secrets/token-store.test.ts packages/core/src/integrations/slack/no-token-leaks.test.ts
       Files: packages/core/src/integrations/slack/client.ts, packages/core/src/secrets/token-store.ts, packages/core/src/test/fake-slack.ts, the tests
 - [ ] Task 5: Save and remove Slack's bot token, checked first, and say `bot` in Slack's connection (AC-14)

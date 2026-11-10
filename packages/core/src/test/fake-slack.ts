@@ -149,6 +149,37 @@ export function slackPosts(posted: { channel: string; thread_ts: string; text: s
   });
 }
 
+/** The bot token Slack accepts in these tests (spec 057, A). Not a real token's shape either. */
+export const slackBotToken = 'fake-slack-bot-token-for-tests';
+/** The bot's own user, in the Acme workspace. */
+export const slackBotUserId = 'U07BOT0RYX';
+
+/**
+ * `auth.test` for a bot token (spec 057, AC-14): the bot, its workspace and its scopes. Any other token goes on to
+ * the next handler, so `acceptingAuthTest()` still answers for your own token.
+ */
+export function acceptingBotToken({
+  tokens = [slackBotToken],
+  scopes = ['chat:write', 'im:write', 'im:history'],
+  url = 'https://acme.slack.com/',
+}: { tokens?: readonly string[]; scopes?: readonly string[]; url?: string } = {}) {
+  return http.post(`${slackApi}/auth.test`, ({ request }) => {
+    if (!sentToken(request, tokens)) return undefined;
+    return HttpResponse.json(
+      { ok: true, url, team: 'Acme', user: 'orynx', team_id: 'T024BE7LD', user_id: slackBotUserId, bot_id: 'B07ORYNX' },
+      { headers: { 'x-oauth-scopes': scopes.join(',') } },
+    );
+  });
+}
+
+/** `conversations.open` for the bot's DM with a person: Slack answers the DM channel; `opened` collects who. */
+export function slackDmOpen(channel: string, opened: string[] = []) {
+  return http.post(`${slackApi}/conversations.open`, async ({ request }) => {
+    opened.push((await fieldsOf(request)).get('users') ?? '');
+    return HttpResponse.json({ ok: true, channel: { id: channel } });
+  });
+}
+
 /**
  * MSW standing in for Slack, an outside service, for the test file that calls this. It answers `auth.test`,
  * `users.info`, no mentions and no DMs, and fails any other request, so no test can reach the real internet.
