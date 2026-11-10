@@ -164,6 +164,51 @@ export function discordDmClosed() {
 }
 
 /**
+ * The bot's DM with you as one conversation (spec 057, A): it opens, keeps what the bot sends and what `reply` adds as
+ * you, with ids in order, and reads them back after an id, newest first, as Discord does.
+ */
+export function discordDmConversation(dm = '1100000000000000300') {
+  const messages: FakeDiscordMessage[] = [];
+  let next = BigInt('1434480000000000001');
+  function add(author: string, content: string, replyTo?: string): string {
+    const id = String(next++);
+    const bot = author === botId;
+    messages.push({
+      id,
+      channel_id: dm,
+      author: { id: author, username: bot ? 'Orynx' : 'neha', bot },
+      content,
+      timestamp: '2026-11-10T10:00:00.000Z',
+      ...(replyTo === undefined ? {} : { message_reference: { message_id: replyTo } }),
+    });
+    return id;
+  }
+  const handlers = [
+    discordDm(dm),
+    http.post(`${discordApi}/channels/${dm}/messages`, async ({ request }) => {
+      if (!sentToken(request, [discordToken])) return unauthorized();
+      const body = (await request.json()) as { content: string; message_reference?: { message_id: string } };
+      return HttpResponse.json({ id: add(botId, body.content, body.message_reference?.message_id), channel_id: dm });
+    }),
+    http.get(`${discordApi}/channels/${dm}/messages`, ({ request }) => {
+      const after = BigInt(new URL(request.url).searchParams.get('after') ?? '0');
+      return HttpResponse.json(messages.filter((message) => BigInt(message.id) > after).reverse());
+    }),
+  ];
+  return {
+    dm,
+    handlers,
+    messages,
+    /** What the bot has sent, in order. */
+    sent: () => messages.filter((message) => message.author.id === botId),
+    /** A message from you, as a Reply to `replyTo` when given; its id. */
+    reply: (content: string, replyTo?: string) => add(discordUserId, content, replyTo),
+    /** A message from someone else. */
+    from: (author: string, content: string, replyTo?: string) => add(author, content, replyTo),
+  };
+}
+
+/**
  * MSW standing in for Discord, an outside service, for the test file that calls this. It answers for the bot and
  * fails any other request, so no test can reach the real internet.
  */

@@ -153,6 +153,8 @@ export type SessionReport =
       what: 'answered';
       session: string;
       ticket: string;
+      /** The call's id, so a question sent to chat can say it ended (spec 057). */
+      approval: string;
       about: AgentAsk['kind'];
       answer: ApprovalAnswer | null;
       by: ApprovalEnd;
@@ -681,6 +683,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         what: 'answered',
         session: id,
         ticket,
+        approval: entry.id,
         about: entry.about,
         answer: entry.answer,
         by: entry.by,

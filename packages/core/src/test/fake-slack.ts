@@ -181,6 +181,45 @@ export function slackDmOpen(channel: string, opened: string[] = []) {
 }
 
 /**
+ * The bot's DM with you as one conversation (spec 057, A): it opens, keeps what the bot posts and what `reply` adds as
+ * you in a thread, with ts in order, and reads a thread back, its first message first, as Slack does.
+ */
+export function slackDmConversation(dm = 'D07BOTDM01') {
+  const messages: { ts: string; user: string; text: string; thread_ts?: string }[] = [];
+  let next = 1793610000;
+  function add(user: string, text: string, thread?: string): string {
+    const ts = `${String(next++)}.000100`;
+    messages.push({ ts, user, text, ...(thread === undefined ? {} : { thread_ts: thread }) });
+    return ts;
+  }
+  const handlers = [
+    slackDmOpen(dm),
+    http.post(`${slackApi}/chat.postMessage`, async ({ request }) => {
+      if (!sentToken(request, [slackBotToken])) return HttpResponse.json({ ok: false, error: 'invalid_auth' });
+      const fields = await fieldsOf(request);
+      const thread = fields.get('thread_ts') ?? undefined;
+      return HttpResponse.json({ ok: true, channel: dm, ts: add(slackBotUserId, fields.get('text') ?? '', thread) });
+    }),
+    http.post(`${slackApi}/conversations.replies`, async ({ request }) => {
+      const ts = (await fieldsOf(request)).get('ts') ?? '';
+      return HttpResponse.json({
+        ok: true,
+        messages: messages.filter((message) => message.ts === ts || message.thread_ts === ts),
+      });
+    }),
+  ];
+  return {
+    dm,
+    handlers,
+    messages,
+    /** What the bot has posted, in order. */
+    sent: () => messages.filter((message) => message.user === slackBotUserId),
+    /** A reply from you in `thread`; its ts. */
+    reply: (text: string, thread: string) => add(slackUserId, text, thread),
+  };
+}
+
+/**
  * MSW standing in for Slack, an outside service, for the test file that calls this. It answers `auth.test`,
  * `users.info`, no mentions and no DMs, and fails any other request, so no test can reach the real internet.
  */

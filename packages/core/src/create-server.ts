@@ -23,6 +23,7 @@ import { createSyncActivityService } from './inbox/sync-activity-service.ts';
 import { registerLocalOnly } from './plugins/local-only.ts';
 import { createNotificationService } from './notifications/notification-service.ts';
 import { createNotificationSettingsService } from './notifications/notification-settings.ts';
+import { createChatAnswers } from './chat-answers/chat-answers.ts';
 import { createPreferencesService } from './preferences/preferences-service.ts';
 import { createRepositoryService, FolderRejectedError } from './repositories/repository-service.ts';
 import { createSkillStore, orynxSkillsFolder, SkillRejectedError } from './skills/skill-store.ts';
@@ -104,6 +105,8 @@ export interface CoreOptions {
   events?: EventBus;
   /** Keep-alive interval for the event stream. */
   eventsKeepAliveMs?: number;
+  /** How often a question sent to Slack or Discord is read for your reply (spec 057); 15 s when left out. */
+  chatAnswersEveryMs?: number;
   /** Where sessions are kept. Hosts pass the store under DEVHUB_HOME (spec 011); tests get memory. */
   sessions?: SessionRecords;
   /** Orynx's own tickets (spec 037). Hosts pass `<DEVHUB_HOME>/tickets.json`; tests get memory. */
@@ -510,6 +513,23 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     // Nothing you started in a Terminal outlives Orynx.
     app.addHook('onClose', () => terminal.close());
   }
+  // Claude's questions answered from Slack or Discord (spec 057, A), through the session service's own respond().
+  const chatAnswers = createChatAnswers({
+    settings: createNotificationSettingsService({ settings, events }),
+    sessions: {
+      respond: (...answer) => sessionService.respond(...answer),
+      unsent: (...marked) => sessionService.unsent(...marked),
+    },
+    slack: { client: slackClient, connection: slack },
+    discord: { client: discordClient, connection: discord },
+    ...(options.chatAnswersEveryMs === undefined ? {} : { everyMs: options.chatAnswersEveryMs }),
+    onProblem: (service, problem) => {
+      app.log.warn({ [service]: problem }, "A message about Claude's question couldn't be sent");
+    },
+    onError: (error) => {
+      app.log.error(error, "Answering Claude's question from chat failed");
+    },
+  });
   const sessionService = createSessionService({
     // Each Build reads your ask first (spec 042).
     readAsks: true,
@@ -572,12 +592,14 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     ...(terminal === null ? {} : { terminal, ports: createPortService({}) }),
     onChange: (before, after, change) => {
       notifications.sessionChanged(before, after, change);
+      chatAnswers.sessionChanged(before, after);
     },
     onCleaned: (count, bytes) => {
       notifications.sessionsCleaned(count, bytes);
     },
     // Kinds, ids and codes only: never the ticket's text or Claude's words (AC-21).
     onReport: (report) => {
+      chatAnswers.reported(report);
       switch (report.what) {
         case 'started':
           app.log.info(report, 'Claude started a session');
@@ -615,6 +637,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
   app.addHook('onClose', async () => {
     cleanup?.stop();
     await sessionService.close();
+    await chatAnswers.close();
   });
   const updates =
     options.updates === undefined

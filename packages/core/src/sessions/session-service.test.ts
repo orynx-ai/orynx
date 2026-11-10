@@ -806,6 +806,7 @@ describe('approvals (spec 012)', () => {
       what: 'answered',
       session: '0000000000000001',
       ticket: 'PROJ-1423',
+      approval: approval?.id,
       about: 'command',
       answer: 'allow_once',
       by: 'you',
