@@ -10,7 +10,7 @@
 // message; spec 042: or, starting "The ask:", the quick read of an ask. "(no draft)" in the ticket's title makes it fail as a signed-out Claude Code would.
 //
 // Spec 051: "(asks)" makes it ask a question after its first read, and write what it got back, your answers or the
-// words for Skip, into `answers.txt` in its working folder.
+// words for Skip, into `answers.txt` in its working folder. Spec 057: "(near limit)" says Claude is close to its limit.
 //
 // Spec 013: a message that comes while it works waits, and is taken into the turn after its next tool call;
 // each result says which messages its turn took and how many still wait. `--resume` with its own session id
@@ -290,6 +290,23 @@ async function play(brief: string): Promise<void> {
   ];
   if (brief.includes('(slow)')) steps.splice(1, 0, () => aMessage().then(() => undefined));
   if (brief.includes('(asks)')) steps.splice(1, 0, askQuestion);
+  // Spec 057: "(near limit)" says Claude is close to its 5-hour limit, resetting in two hours.
+  if (brief.includes('(near limit)')) {
+    steps.splice(1, 0, () => {
+      send({
+        type: 'rate_limit_event',
+        rate_limit_info: {
+          status: 'allowed_warning',
+          rateLimitType: 'five_hour',
+          utilization: 0.82,
+          resetsAt: Math.floor(Date.now() / 1000) + 2 * 3600,
+        },
+        uuid: nextId('uuid'),
+        session_id: sessionId,
+      });
+      return Promise.resolve();
+    });
+  }
   for (const step of steps) {
     await pause(stepMs);
     if (stopped) return;

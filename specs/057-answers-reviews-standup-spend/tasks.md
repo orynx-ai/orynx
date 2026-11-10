@@ -136,9 +136,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 40: The limit callout on Home and the Sessions page, and the notification's words (AC-45, AC-46, AC-47, AC-48, AC-49)
       Check: pnpm test packages/app/src/shell/limit-callout.test.tsx packages/app/src/features/notifications/words.test.ts packages/app/src/features/home/home-screen.test.tsx
       Files: packages/app/src/shell/limit-callout.tsx (used by two screens, so shell), packages/app/src/features/home/home-screen.tsx, packages/app/src/features/sessions/sessions-screen.tsx, the tests (the notification's words came with task 35)
-- [ ] Task 41: e2e: the standup dialog, the spend tiles and the limit callout, with no axe violations in either theme (AC-33, AC-43, AC-49)
-      Check: pnpm test:e2e e2e/standup-and-spend.spec.ts
-      Files: e2e/standup-and-spend.spec.ts
+- [x] Task 41: e2e: the standup dialog, the spend tiles and the limit callout, with no axe violations in either theme (AC-33, AC-43, AC-49)
+      Check: pnpm test:e2e e2e/standup-and-spend.spec.ts e2e/chat-answers.spec.ts
+      Files: e2e/standup-and-spend.spec.ts, e2e/fake-claude/session.ts ("(near limit)"), e2e/fake-tools/config.ts and playwright.config.ts (spec 057's own hub, 4370, which chat-answers moves to)
 
 ## Docs and review
 

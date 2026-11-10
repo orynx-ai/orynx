@@ -7,17 +7,17 @@ import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { discordUserId, type FakeDiscordMessage } from '../packages/core/src/test/fake-discord.ts';
 import { answerClaudeAs, fakeClaudeDirFor } from './fake-claude/config.ts';
-import { chatHubPort, controlPortFor, type FakeTools } from './fake-tools/config.ts';
+import { answersHubPort, controlPortFor, type FakeTools } from './fake-tools/config.ts';
 
-// Answering Claude's question from Discord (spec 057, A), on Slack and Discord's own hub: its Discord is faked in the
-// hub's process, and the fake Claude Code asks a question when its brief says "(asks)" (spec 051).
-test.use({ baseURL: `http://127.0.0.1:${String(chatHubPort)}` });
+// Answering Claude's question from Discord (spec 057, A), on spec 057's own hub: its Discord is faked in the hub's
+// process, and the fake Claude Code asks a question when its brief says "(asks)" (spec 051).
+test.use({ baseURL: `http://127.0.0.1:${String(answersHubPort)}` });
 // The hub reads the DM every 15 seconds.
 test.setTimeout(90_000);
 // One Discord DM for both tests: a reply rewrites what the fake holds, so they take turns.
 test.describe.configure({ mode: 'serial' });
 
-const control = `http://127.0.0.1:${String(controlPortFor(chatHubPort))}/tools`;
+const control = `http://127.0.0.1:${String(controlPortFor(answersHubPort))}/tools`;
 const discordToken = 'fake-discord-token-for-tests';
 
 /** A real repository in a temporary folder, and git that reads none of your settings. */
@@ -121,9 +121,9 @@ async function asking(page: Page, message: string): Promise<FakeDiscordMessage> 
 
 test.beforeAll(async ({ browser }, testInfo) => {
   test.skip((testInfo.project.use.viewport?.width ?? 0) < 768, 'the questions share one hub and one Discord DM');
-  const page = await browser.newPage({ baseURL: `http://127.0.0.1:${String(chatHubPort)}` });
+  const page = await browser.newPage({ baseURL: `http://127.0.0.1:${String(answersHubPort)}` });
   await page.goto('/settings/connections');
-  await answerClaudeAs('signed_in', fakeClaudeDirFor(chatHubPort));
+  await answerClaudeAs('signed_in', fakeClaudeDirFor(answersHubPort));
   await api(page, 'POST', '/api/claude/login/check');
   await api(page, 'PUT', '/api/discord/connection', { token: discordToken });
   const added = (await api(page, 'POST', '/api/repositories', { path: repository.clone, jiraProject: null })) as {
