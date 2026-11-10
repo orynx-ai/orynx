@@ -24,6 +24,7 @@ import { registerLocalOnly } from './plugins/local-only.ts';
 import { createNotificationService } from './notifications/notification-service.ts';
 import { createNotificationSettingsService } from './notifications/notification-settings.ts';
 import { createChatAnswers, type DesktopQuestions } from './chat-answers/chat-answers.ts';
+import { createLimitWatch } from './limits/limit-watch.ts';
 import { pullsWithNewThreads } from './sessions/pull-changes.ts';
 import { createStandupService } from './standup/standup-service.ts';
 import { createReadAhead, type ReadAheadService } from './read-ahead/read-ahead-service.ts';
@@ -528,6 +529,16 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     // Nothing you started in a Terminal outlives Orynx.
     app.addHook('onClose', () => terminal.close());
   }
+  // How close you are to Claude's limit (spec 057, E), as its sessions hear it: in status, and told once a window.
+  const limits = createLimitWatch({
+    events,
+    notify: (limit) => {
+      notifications.limitNear(limit);
+    },
+  });
+  app.addHook('onClose', () => {
+    limits.close();
+  });
   // Claude's questions answered from Slack or Discord (spec 057, A), through the session service's own respond().
   const chatAnswers = createChatAnswers({
     settings: createNotificationSettingsService({ settings, events }),
@@ -612,6 +623,9 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     },
     onCleaned: (count, bytes) => {
       notifications.sessionsCleaned(count, bytes);
+    },
+    onLimit: (status, limit) => {
+      limits.heard(status, limit);
     },
     // Kinds, ids and codes only: never the ticket's text or Claude's words (AC-21).
     onReport: (report) => {
@@ -701,6 +715,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     claude: () => claude.connected(),
     codex: () => codexLogin.connected(),
     desktopReplies: options.desktopQuestions !== undefined,
+    claudeLimit: () => limits.current(),
   });
 
   await app.register(

@@ -2,6 +2,7 @@ import type { z } from 'zod';
 import {
   notificationLimits,
   NotificationWhatSchema,
+  type ClaudeLimit,
   type MarkNotificationsRead,
   type Notification,
   type NotificationList,
@@ -34,6 +35,8 @@ export interface NotificationService {
   updateAvailable(version: string): void;
   /** The session service's `onCleaned` (spec 047, D): a cleanup run deleted `count` sessions, freeing `bytes`. */
   sessionsCleaned(count: number, bytes: number): void;
+  /** Close to one of Claude's plan limits (spec 057, AC-45): once for each window, by its id. */
+  limitNear(limit: ClaudeLimit): void;
 }
 
 export interface NotificationServiceOptions {
@@ -150,6 +153,12 @@ export function createNotificationService({
     sessionsCleaned(count, bytes) {
       safely(() => {
         add([{ id: `sessions_cleaned:${String(now())}`, what: { kind: 'sessions_cleaned', count, bytes } }]);
+      });
+    },
+
+    limitNear(limit) {
+      safely(() => {
+        add([{ id: `limit_near:${limit.window}:${limit.resetsAt ?? ''}`, what: { kind: 'limit_near', ...limit } }]);
       });
     },
   };

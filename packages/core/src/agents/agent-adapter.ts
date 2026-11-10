@@ -13,6 +13,7 @@ import type {
   AgentModels,
   AlwaysAskReason,
   ChangeLine,
+  ClaudeLimit,
   EffortLevel,
   JiraChangeAsk,
   SessionQuestion,
@@ -164,6 +165,13 @@ export type AgentEvent =
   | { type: 'usage'; sessionId: string; turns: number; costUsd: number | null }
   /** `code` is safe to log; it never holds the agent's own words. */
   | { type: 'problem'; sessionId: string; kind: AgentProblemKind; code: string }
+  /** How close you are to the agent's plan limit (spec 057, E); Claude Code says it while a session runs. */
+  | {
+      type: 'limit';
+      sessionId: string;
+      status: 'allowed' | 'allowed_warning' | 'rejected';
+      limit: ClaudeLimit | null;
+    }
   /** The agent's program has ended, however it ended. Always the last event. */
   | { type: 'ended'; sessionId: string };
 

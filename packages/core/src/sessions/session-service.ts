@@ -14,6 +14,7 @@ import type {
   AgentChoice,
   AgentId,
   ApprovalDecision,
+  ClaudeLimit,
   ComposerChip,
   CreatePullRequestAnswer,
   CreatePullRequestRequest,
@@ -337,6 +338,8 @@ export interface SessionServiceOptions {
    * itself, Discard or Orynx closing, which you know about already.
    */
   onChange?: (before: Session, after: Session, change: { quiet: boolean }) => void;
+  /** Told how close you are to the agent's plan limit, as a running session heard it (spec 057, E). */
+  onLimit?: (status: 'allowed' | 'allowed_warning' | 'rejected', limit: ClaudeLimit | null) => void;
   /** Told after a cleanup run that deleted sessions: how many, and the bytes their worktrees held (spec 047, D). */
   onCleaned?: (count: number, bytes: number) => void;
   now?: () => number;
@@ -757,6 +760,10 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
 
   function heard(id: string, run: Run, event: AgentEvent) {
     // A stopped turn's turns and cost count too (spec 047), so they come before Stop's cut-off.
+    if (event.type === 'limit') {
+      options.onLimit?.(event.status, event.limit);
+      return;
+    }
     if (event.type === 'usage') {
       track(
         change(id, (record) => ({
