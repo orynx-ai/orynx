@@ -43,7 +43,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 13: Settings › Connections › Slack: the bot token field, checked, saved and removed (AC-14)
       Check: pnpm test packages/app/src/features/settings/components/slack-bot-form.test.tsx
       Files: packages/app/src/features/settings/components/slack-bot-form.tsx, packages/app/src/features/settings/components/connection-dialog.tsx, packages/app/src/features/settings/queries.ts, the test
-- [ ] Task 14: The steps say where you answered from, and a waiting step says it couldn't be sent; the page skips a question's desktop notification when status says `desktopReplies` (AC-2, AC-13, AC-15)
+- [x] Task 14: The steps say where you answered from, and a waiting step says it couldn't be sent; the page skips a question's desktop notification when status says `desktopReplies` (AC-2, AC-13, AC-15)
       Check: pnpm test packages/app/src/features/sessions/step-words.test.ts packages/app/src/features/sessions/components/session-progress.test.tsx packages/app/src/features/notifications/alerts.test.ts
       Files: packages/app/src/features/sessions/step-words.ts, packages/app/src/features/notifications/alerts.ts, the tests
 - [ ] Task 15: e2e: a question answered from the fake Discord, then one answered in Orynx first (AC-1, AC-2, AC-6)

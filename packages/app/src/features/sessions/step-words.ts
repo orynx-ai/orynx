@@ -126,11 +126,26 @@ const deniedTitles: Record<Extract<SessionActivity, { kind: 'denied' }>['about']
   question: "You skipped Claude's question",
 };
 
-/** What Claude wants: its own line about the command when it gave one, or the file it would edit (spec 012, Q8c). */
+const answeredFrom = {
+  slack: 'You answered from Slack',
+  discord: 'You answered from Discord',
+  notification: 'You answered from a notification',
+};
+
+/**
+ * What Claude wants: its own line about the command when it gave one, or the file it would edit (spec 012, Q8c). A
+ * question that couldn't be sent to Slack or Discord says so (spec 057, AC-13).
+ */
 function waitingDetail(activity: Extract<SessionActivity, { kind: 'waiting' }>): string {
   if (activity.about === 'edit') return `Wants to edit ${activity.text ?? 'a file'}`;
   if (activity.about === 'jira') return `Wants to change ${activity.text ?? 'an issue'} in Jira`;
-  if (activity.about === 'question') return activity.text ?? 'Asks you something';
+  if (activity.about === 'question') {
+    const asked = activity.text ?? 'Asks you something';
+    const unsent = activity.unsent ?? [];
+    if (unsent.length === 0) return asked;
+    const where = unsent.map((place) => (place === 'slack' ? 'Slack' : 'Discord')).join(' and ');
+    return `${asked} · Couldn't send the question to ${where}. Answer it here.`;
+  }
   return activity.text ?? 'Wants to run a command';
 }
 
@@ -297,7 +312,7 @@ function claudeStepWords(activity: SessionActivity): StepWords {
     // Each question's header and your answer (spec 051, Q3): "Library: date-fns · Checks: Unit tests, Types".
     case 'answered':
       return {
-        title: 'You answered',
+        title: activity.from === undefined ? 'You answered' : answeredFrom[activity.from],
         detail: activity.answers
           .map(({ header, answer }) => (header === '' ? answer : `${header}: ${answer}`))
           .join(' · '),

@@ -85,6 +85,21 @@ describe('one tab speaks for all (spec 029)', () => {
   });
 });
 
+describe('a question the desktop app shows itself (spec 057, AC-15)', () => {
+  it('leaves the question out of the desktop notifications, and still shows the rest', async () => {
+    const question = makeNotification({
+      id: 'question',
+      what: { kind: 'approval', session, approvalId: 'call-2', about: 'question', command: null, waiting: true },
+    });
+
+    await announce([question, finished], awake, noon, () => undefined, { nativeQuestions: true });
+    expect(FakeNotification.shown.map(({ options }) => options.tag)).toEqual(['finished']);
+
+    await announce([question], awake, noon, () => undefined, { nativeQuestions: false });
+    expect(FakeNotification.shown.map(({ options }) => options.tag)).toEqual(['finished', 'question']);
+  });
+});
+
 describe('announcing what arrived (spec 029)', () => {
   it('AC-28: plays one sound for what arrived together, the first one’s', async () => {
     await announce([approval, finished], awake, noon, () => undefined);
