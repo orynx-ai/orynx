@@ -14,6 +14,7 @@ import {
   type ConnectionCheck,
   type GitHubConnection,
   type GitHubConnectionRequest,
+  type SlackBotRequest,
   type SlackConnection,
   type SlackConnectionRequest,
   type DiscordConnection,
@@ -109,9 +110,11 @@ import {
   putGitHubConnection,
 } from './endpoints/github.ts';
 import {
+  deleteSlackBot,
   deleteSlackConnection,
   getSlackConnection,
   postSlackConnectionCheck,
+  putSlackBot,
   putSlackConnection,
 } from './endpoints/slack.ts';
 import {
@@ -314,6 +317,9 @@ export interface ApiClient {
   connectSlack(request: SlackConnectionRequest): Promise<SlackConnection>;
   disconnectSlack(): Promise<void>;
   checkSlackConnection(): Promise<ConnectionCheck>;
+  /** Checks a bot token with Slack, then saves it, so Orynx can DM you Claude's questions (spec 057, AC-14). */
+  connectSlackBot(request: SlackBotRequest): Promise<SlackConnection>;
+  disconnectSlackBot(): Promise<void>;
   /** The saved bot and whose mentions it reads, and whether `.env` holds a Discord token (spec 016). */
   discordConnection(): Promise<DiscordConnection>;
   /** Checks the bot with Discord, then saves; rejects like {@link connectJira}, or user_id_needed for a team's bot. */
@@ -529,6 +535,9 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       putSlackConnection(http, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     disconnectSlack: () =>
       deleteSlackConnection(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    connectSlackBot: (request) =>
+      putSlackBot(http, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    disconnectSlackBot: () => deleteSlackBot(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     checkSlackConnection: () =>
       postSlackConnectionCheck(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     discordConnection: () =>

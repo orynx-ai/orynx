@@ -114,3 +114,40 @@ describe('threads (spec 016)', () => {
     expect(dismissed).toBe(true);
   });
 });
+
+describe("Slack's bot (spec 057, AC-14)", () => {
+  it('saves a bot token with the page token, and removes it', async () => {
+    let sent: unknown = null;
+    let removed = false;
+    server.use(
+      http.put(url(apiRoutes.slackBot), async ({ request }) => {
+        sent = await request.json();
+        return HttpResponse.json(makeSlackConnection({ bot: true }));
+      }),
+      http.delete(url(apiRoutes.slackBot), () => {
+        removed = true;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    expect((await api.connectSlackBot({ token: 'fake-slack-bot-token' })).bot).toBe(true);
+    expect(sent).toEqual({ token: 'fake-slack-bot-token' });
+    await api.disconnectSlackBot();
+    expect(removed).toBe(true);
+  });
+
+  it("rejects a token Slack refused with the server's words", async () => {
+    server.use(
+      http.put(url(apiRoutes.slackBot), () =>
+        HttpResponse.json(
+          { code: 'integration_rejected', message: "That token didn't work with Slack." },
+          { status: 422 },
+        ),
+      ),
+    );
+
+    const error: unknown = await api.connectSlackBot({ token: 'fake-wrong-token' }).catch((thrown: unknown) => thrown);
+    expect(error).toBeInstanceOf(ApiRequestError);
+    expect(error).toMatchObject({ code: 'integration_rejected', message: "That token didn't work with Slack." });
+  });
+});
