@@ -97,12 +97,18 @@ export type GitHubDefaultBranch = { ok: true; branch: string } | { ok: false; pr
 export type GitHubPullState =
   { ok: true; state: 'open' | 'closed' | 'merged'; head: string } | { ok: false; problem: GitHubPullProblem };
 
-/** An unresolved review thread with GitHub's id for it, and every comment in it, oldest first (spec 049). */
+/**
+ * An unresolved review thread with GitHub's id for it, and every comment in it, oldest first (spec 049); its side, and
+ * whether GitHub calls it outdated, with its link and each comment's time (spec 057).
+ */
 export interface GitHubReviewThread {
   id: string;
   path: string;
   line: number | null;
-  comments: { author: string; body: string }[];
+  side: 'new' | 'old';
+  outdated: boolean;
+  url: string;
+  comments: { author: string; body: string; at: string }[];
 }
 
 export type GitHubReviewThreads =
@@ -338,7 +344,10 @@ const reviewThreadsQuery = `
     repository(owner: $owner, name: $name) {
       pullRequest(number: $number) {
         reviewThreads(first: 50) {
-          nodes { id isResolved path line comments(first: 20) { nodes { author { login } body } } }
+          nodes {
+            id isResolved isOutdated path line diffSide
+            comments(first: 20) { nodes { author { login } body createdAt url } }
+          }
         }
       }
     }
@@ -375,6 +384,23 @@ const ThreadSchema = z.object({
   line: z.int().nullish(),
   comments: z.object({
     nodes: z.array(z.object({ author: z.object({ login: z.string() }).nullish(), body: z.string() })),
+  }),
+});
+/** A thread as Reply to reviewers (spec 049) and the Review comments tab (spec 057) read it. */
+const ReviewThreadNodeSchema = ThreadSchema.extend({
+  isOutdated: z.boolean().catch(false),
+  diffSide: z.enum(['LEFT', 'RIGHT']).catch('RIGHT'),
+  comments: z.object({
+    nodes: z
+      .array(
+        z.object({
+          author: z.object({ login: z.string() }).nullish(),
+          body: z.string(),
+          createdAt: z.iso.datetime(),
+          url: z.string(),
+        }),
+      )
+      .min(1),
   }),
 });
 const FileCountSchema = z.object({ path: z.string(), additions: z.int(), deletions: z.int() });
@@ -752,13 +778,24 @@ export function createGitHubClient({
         const pull = data.data.repository?.pullRequest;
         if (pull === null || pull === undefined) return { ok: false, problem: { kind: 'not_found' } };
         const threads = pull.reviewThreads.nodes.flatMap((node): GitHubReviewThread[] => {
-          const thread = ThreadSchema.safeParse(node);
+          const thread = ReviewThreadNodeSchema.safeParse(node);
           if (!thread.success || thread.data.isResolved || thread.data.id === undefined) return [];
           const comments = thread.data.comments.nodes.map((comment) => ({
             author: comment.author?.login ?? 'Someone',
             body: comment.body,
+            at: new Date(comment.createdAt).toISOString(),
           }));
-          return [{ id: thread.data.id, path: thread.data.path, line: thread.data.line ?? null, comments }];
+          return [
+            {
+              id: thread.data.id,
+              path: thread.data.path,
+              line: thread.data.line ?? null,
+              side: thread.data.diffSide === 'LEFT' ? 'old' : 'new',
+              outdated: thread.data.isOutdated,
+              url: thread.data.comments.nodes[0]?.url ?? '',
+              comments,
+            },
+          ];
         });
         return { ok: true, threads };
       } catch (error) {

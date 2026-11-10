@@ -186,7 +186,11 @@ export interface FakePullContext {
     resolved: boolean;
     path: string;
     line: number | null;
-    comments: readonly { author: string | null; body: string }[];
+    /** The diff's side, RIGHT unless said, and whether GitHub calls it outdated (spec 057). */
+    side?: 'LEFT' | 'RIGHT';
+    outdated?: boolean;
+    /** `at` is when each was written: 15:00 on 9 Nov 2026, a minute apart, unless said. */
+    comments: readonly { author: string | null; body: string; at?: string }[];
   }[];
 }
 
@@ -234,12 +238,16 @@ export function acceptingReviewThreads(
       const nodes = (pull.threads ?? []).map((thread, place) => ({
         id: thread.id ?? `PRRT_${String(place + 1)}`,
         isResolved: thread.resolved,
+        isOutdated: thread.outdated ?? false,
         path: thread.path,
         line: thread.line,
+        diffSide: thread.side ?? 'RIGHT',
         comments: {
-          nodes: thread.comments.map((comment) => ({
+          nodes: thread.comments.map((comment, index) => ({
             author: comment.author === null ? null : { login: comment.author },
             body: comment.body,
+            createdAt: comment.at ?? new Date(Date.UTC(2026, 10, 9, 15, index)).toISOString(),
+            url: `https://github.com/${String(variables['owner'])}/${String(variables['name'])}/pull/${String(pull.number)}#discussion_r${String(place + 1)}0${String(index)}`,
           })),
         },
       }));

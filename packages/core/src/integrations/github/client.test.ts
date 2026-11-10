@@ -693,12 +693,55 @@ describe('review threads (spec 049)', () => {
           id: 'PRRT_a',
           path: 'src/ContentList.tsx',
           line: 42,
+          side: 'new',
+          outdated: false,
+          url: 'https://github.com/acme/web-app/pull/2841#discussion_r100',
           comments: [
-            { author: 'priya', body: 'Use the existing useSelection hook here.' },
-            { author: githubLogin, body: 'Will do.' },
+            { author: 'priya', body: 'Use the existing useSelection hook here.', at: '2026-11-09T15:00:00.000Z' },
+            { author: githubLogin, body: 'Will do.', at: '2026-11-09T15:01:00.000Z' },
           ],
         },
-        { id: 'PRRT_c', path: 'README.md', line: null, comments: [{ author: 'Someone', body: 'A typo.' }] },
+        {
+          id: 'PRRT_c',
+          path: 'README.md',
+          line: null,
+          side: 'new',
+          outdated: false,
+          url: 'https://github.com/acme/web-app/pull/2841#discussion_r300',
+          comments: [{ author: 'Someone', body: 'A typo.', at: '2026-11-09T15:00:00.000Z' }],
+        },
+      ],
+    });
+  });
+
+  it('057 AC-19, AC-21: reads which side a thread is on, whether GitHub calls it outdated, and its link', async () => {
+    github.use(
+      acceptingReviewThreads([
+        {
+          number: 2841,
+          threads: [
+            {
+              id: 'PRRT_d',
+              resolved: false,
+              path: 'src/api.ts',
+              line: 3,
+              side: 'LEFT',
+              outdated: true,
+              comments: [{ author: 'sam', body: 'Why remove this?', at: '2026-11-08T09:30:00Z' }],
+            },
+          ],
+        },
+      ]),
+    );
+    expect(await client.reviewThreads(githubToken, pull)).toMatchObject({
+      ok: true,
+      threads: [
+        {
+          side: 'old',
+          outdated: true,
+          url: 'https://github.com/acme/web-app/pull/2841#discussion_r100',
+          comments: [{ author: 'sam', at: '2026-11-08T09:30:00.000Z' }],
+        },
       ],
     });
   });
