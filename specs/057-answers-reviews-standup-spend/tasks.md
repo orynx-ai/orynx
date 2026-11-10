@@ -103,7 +103,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 30: Contracts: the `readReviewsAhead` preference (off), a session's `readAhead` mark, and the inbox row's `readAhead` (AC-34, AC-35)
       Check: pnpm test packages/contracts/src/preferences.test.ts packages/contracts/src/inbox.test.ts; pnpm typecheck
       Files: packages/contracts/src/preferences.ts, packages/contracts/src/inbox.ts, packages/contracts/src/session.ts, packages/contracts/src/testing.ts
-- [ ] Task 31: The read-ahead queue as a pure function: one at a time, fewer than 2 working, 5 a day, oldest first, withdrawn dropped (AC-37, AC-38, AC-39, AC-40)
+- [x] Task 31: The read-ahead queue as a pure function: one at a time, fewer than 2 working, 5 a day, oldest first, withdrawn dropped (AC-37, AC-38, AC-39, AC-40)
       Check: pnpm test packages/core/src/read-ahead/queue.test.ts
       Files: packages/core/src/read-ahead/queue.ts, the test
 - [ ] Task 32: The read-ahead service: new requests after turning on start a review, the queue moves when a session ends or the setting changes, and Home's rows carry `readAhead` (AC-35, AC-36, AC-37, AC-38, AC-40, AC-41)
