@@ -85,7 +85,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 25: GitHub's search for your pull requests merged on a day; Jira's moves use its client's own `search()`, which runs any JQL (AC-28, AC-31)
       Check: pnpm test packages/core/src/integrations/github/client.test.ts
       Files: packages/core/src/integrations/github/client.ts, packages/core/src/test/fake-github.ts, the test
-- [ ] Task 26: The last working day and the standup's text from plain facts (AC-28, AC-29, AC-30)
+- [x] Task 26: The last working day and the standup's text from plain facts (AC-28, AC-29, AC-30)
       Check: pnpm test packages/core/src/standup/standup-text.test.ts
       Files: packages/core/src/standup/standup-text.ts, the test
 - [ ] Task 27: The standup service and `GET /api/standup`: facts from sessions, GitHub, Jira and the sprint, with each failed source missing (AC-28, AC-31)
