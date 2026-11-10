@@ -144,6 +144,8 @@ export type SessionItemProps = Omit<ComponentProps<'a'>, 'title'> & {
   state: SessionItemState;
   /** What "Done" is ready for. */
   ready?: SessionItemReady;
+  /** A word after the state, such as what the session cost: "≈ $1.42" (spec 057, E). */
+  detail?: string | undefined;
   /** Render the child element (for example a router link) as the row. */
   asChild?: boolean;
   size?: SessionItemSize;
@@ -164,6 +166,7 @@ export function SessionItem({
   source,
   state,
   ready,
+  detail,
   asChild = false,
   size = 'default',
   actions,
@@ -208,6 +211,15 @@ export function SessionItem({
             </>
           )}
           <span className={wordVariants({ state })}>{sessionStateLabel(state, ready)}</span>
+          {detail === undefined ? null : (
+            <>
+              {' '}
+              <span aria-hidden className="shrink-0">
+                ·
+              </span>{' '}
+              <span className="shrink-0">{detail}</span>
+            </>
+          )}
         </span>
       </span>
     </Comp>

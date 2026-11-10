@@ -20,6 +20,15 @@ describe('SessionItem', () => {
     expect(link).toHaveAttribute('href', '/sessions/1');
   });
 
+  it('057 AC-42: says a detail after the state, such as its cost, inside the link', async () => {
+    const { container } = render(
+      <SessionItem href="/sessions/1" title="Add bulk archive" source="PROJ-1423" state="done" detail="≈ $1.42" />,
+    );
+
+    expect(screen.getByRole('link', { name: 'Add bulk archive PROJ-1423 Done, ready for PR ≈ $1.42' })).toBeVisible();
+    await expectNoAxeViolations(container);
+  });
+
   it.each(states)('AC-9: tells the %s state in words, not colour alone', (state) => {
     render(<SessionItem href="#" title="Fix timezone shift" state={state} />);
 
