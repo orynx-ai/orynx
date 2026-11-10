@@ -46,9 +46,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 14: The steps say where you answered from, and a waiting step says it couldn't be sent; the page skips a question's desktop notification when status says `desktopReplies` (AC-2, AC-13, AC-15)
       Check: pnpm test packages/app/src/features/sessions/step-words.test.ts packages/app/src/features/sessions/components/session-progress.test.tsx packages/app/src/features/notifications/alerts.test.ts
       Files: packages/app/src/features/sessions/step-words.ts, packages/app/src/features/notifications/alerts.ts, the tests
-- [ ] Task 15: e2e: a question answered from the fake Discord, then one answered in Orynx first (AC-1, AC-2, AC-6)
+- [x] Task 15: e2e: a question answered from the fake Discord, then one answered in Orynx first (AC-1, AC-2, AC-6)
       Check: pnpm test:e2e e2e/chat-answers.spec.ts
-      Files: e2e/chat-answers.spec.ts, e2e/fake-tools/preload.ts, e2e/fake-tools/config.ts
+      Files: e2e/chat-answers.spec.ts, e2e/fake-tools/preload.ts, e2e/fake-tools/config.ts, packages/core/src/test/fake-discord.ts
 
 ## B. Review comments in the diff
 

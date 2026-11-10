@@ -1,3 +1,4 @@
+import type { FakeDiscordMessage } from '../../packages/core/src/test/fake-discord.ts';
 import type { FakeIssue } from '../../packages/core/src/test/fake-jira.ts';
 import type { FakeMention, FakeSlackMessage } from '../../packages/core/src/test/fake-slack.ts';
 import type {
@@ -95,6 +96,8 @@ export interface FakeTools {
   threadWrites?: FakeThreadWrite[];
   /** Every review posted (spec 050), in order. */
   postedReviews?: FakePostedReview[];
+  /** The Discord bot's DM with you (spec 057): what Orynx sends, and the replies a spec adds as you. */
+  discordDm?: FakeDiscordMessage[];
   /** Slack's mentions of you and their threads (spec 016), and every reply Orynx posts. */
   slack?: { mentions: FakeMention[]; threads: Record<string, FakeSlackMessage[]>; posted?: FakeSlackPost[] };
 }

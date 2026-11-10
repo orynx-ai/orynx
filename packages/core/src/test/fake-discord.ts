@@ -164,14 +164,17 @@ export function discordDmClosed() {
 }
 
 /**
- * The bot's DM with you as one conversation (spec 057, A): it opens, keeps what the bot sends and what `reply` adds as
- * you, with ids in order, and reads them back after an id, newest first, as Discord does.
+ * The bot's DM with you as one conversation (spec 057, A): it opens, keeps in `messages` what the bot sends and what
+ * `reply` adds as you, with ids in order, and reads them back after an id, newest first, as Discord does.
  */
-export function discordDmConversation(dm = '1100000000000000300') {
-  const messages: FakeDiscordMessage[] = [];
-  let next = BigInt('1434480000000000001');
+export function discordDmConversation(dm = '1100000000000000300', messages: FakeDiscordMessage[] = []) {
+  // Ids go on from the newest kept, so an e2e spec's replies, kept between the hub's resets, stay in order.
   function add(author: string, content: string, replyTo?: string): string {
-    const id = String(next++);
+    const newest = messages.reduce(
+      (most, { id }) => (BigInt(id) > most ? BigInt(id) : most),
+      BigInt('1434480000000000000'),
+    );
+    const id = String(newest + BigInt(1));
     const bot = author === botId;
     messages.push({
       id,
