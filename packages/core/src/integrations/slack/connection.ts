@@ -35,6 +35,15 @@ export interface SlackConnectionService {
   checkNow(): Promise<ConnectionCheck>;
   /** The saved token for the inbox's sync, or null when Slack isn't connected. Doesn't ask Slack. */
   credentials(): Promise<SlackSyncCredentials | null>;
+  /**
+   * Checks a bot token with Slack, then saves it (spec 057, AC-14): a bot's, with its scopes, in your workspace. On any
+   * failure nothing changes.
+   */
+  connectBot(token: string): Promise<SlackConnection>;
+  /** Removes the bot token. */
+  disconnectBot(): Promise<void>;
+  /** The bot's token and whom it DMs, or null without both. Doesn't ask Slack. */
+  botCredentials(): Promise<{ token: string; userId: string } | null>;
 }
 
 export interface SlackConnectionOptions {
@@ -52,6 +61,7 @@ export interface SlackConnectionOptions {
 
 const notConnected: IntegrationStatus = { state: 'not_connected', detail: null };
 const missingToken = 'The saved Slack token is missing from your keychain. Connect again.';
+const botRefused = "That token didn't work with Slack.";
 
 /** A check's answer, and the inbox's rows, belong to one workspace and person. */
 export function slackAccount(saved: SlackSavedConnection): string {
@@ -75,7 +85,8 @@ export function createSlackConnection(options: SlackConnectionOptions): SlackCon
   const now = options.now ?? Date.now;
 
   async function read(): Promise<SlackConnection> {
-    return { saved: (await settings.read()).slack ?? null, envToken, bot: false };
+    const { slack: saved, slackBot } = await settings.read();
+    return { saved: saved ?? null, envToken, bot: saved !== undefined && slackBot?.url === saved.url };
   }
 
   function reportKeychain(error: TokenStoreError): void {
@@ -155,7 +166,8 @@ export function createSlackConnection(options: SlackConnectionOptions): SlackCon
 
     async disconnect() {
       await fromTokenStore(() => tokens.remove('slack'));
-      await settings.update(({ slack: _, ...rest }) => rest);
+      await fromTokenStore(() => tokens.remove('slack_bot'));
+      await settings.update(({ slack: _, slackBot: __, ...rest }) => rest);
       checked.forget();
       events.publish({ type: 'status.changed' });
     },
@@ -178,6 +190,34 @@ export function createSlackConnection(options: SlackConnectionOptions): SlackCon
       const started = now();
       const status = await checked.checkNow(saved);
       return { status: described(saved, status), ms: Math.max(0, Math.round(now() - started)) };
+    },
+
+    async connectBot(token) {
+      const saved = (await settings.read()).slack;
+      if (saved === undefined) throw new ConnectionError('bad_request', 'Connect Slack in Connections first.');
+      const answer = await slack.checkBot(token);
+      if (!answer.ok) options.onProblem?.(answer.problem);
+      const refused = answer.ok ? answer.url !== saved.url : codeFor(answer.problem) === 'integration_rejected';
+      if (refused) throw new ConnectionError('integration_rejected', botRefused);
+      if (!answer.ok) throw new ConnectionError('integration_unreachable', describeSlackProblem(answer.problem));
+      // The token first, as for yours: a locked keychain then changes nothing.
+      await fromTokenStore(() => tokens.save('slack_bot', token));
+      await settings.update((current) => ({ ...current, slackBot: { url: answer.url } }));
+      events.publish({ type: 'status.changed' });
+      return read();
+    },
+
+    async disconnectBot() {
+      await fromTokenStore(() => tokens.remove('slack_bot'));
+      await settings.update(({ slackBot: _, ...rest }) => rest);
+      events.publish({ type: 'status.changed' });
+    },
+
+    async botCredentials() {
+      const connection = await read();
+      if (!connection.bot || connection.saved === null) return null;
+      const stored = await fromTokenStore(() => tokens.read('slack_bot'));
+      return stored === null ? null : { token: stored.token, userId: connection.saved.userId };
     },
 
     async credentials() {

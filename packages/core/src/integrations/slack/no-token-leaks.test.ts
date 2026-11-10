@@ -10,7 +10,14 @@ import { createServer } from '../../create-server.ts';
 import { createEventBus } from '../../events/event-bus.ts';
 import { createMemoryKeychain } from '../../secrets/memory-keychain.ts';
 import { createFileSettingsStore, settingsFilePath } from '../../settings/settings-store.ts';
-import { acceptingAuthTest, slackApi, slackToken, useFakeSlack } from '../../test/fake-slack.ts';
+import {
+  acceptingAuthTest,
+  acceptingBotToken,
+  slackApi,
+  slackBotToken,
+  slackToken,
+  useFakeSlack,
+} from '../../test/fake-slack.ts';
 
 const slack = useFakeSlack();
 const sessionToken = 'leaks-session-token-0123456789';
@@ -83,14 +90,19 @@ describe.skipIf(process.platform === 'win32')('Slack tokens never leave core (sp
     slack.resetHandlers();
     await call('PUT', connection, {});
     expect((await call('PUT', connection, { token: slackToken })).statusCode).toBe(200);
+    // Spec 057: a wrong bot token, then a good one, then Remove.
+    await call('PUT', apiRoutes.slackBot, { token: wrongToken });
+    slack.use(acceptingBotToken());
+    expect((await call('PUT', apiRoutes.slackBot, { token: slackBotToken })).statusCode).toBe(200);
     const settingsWhileConnected = await readFile(settingsFilePath(home), 'utf8');
+    await call('DELETE', apiRoutes.slackBot);
     await call('GET', apiRoutes.status);
     await call('GET', connection);
     await call('DELETE', connection);
 
     const everything = [...log, ...bodies, JSON.stringify(events), settingsWhileConnected].join('\n');
     expect(log.length).toBeGreaterThan(5);
-    for (const secret of [slackToken, wrongToken, envToken]) expect(everything).not.toContain(secret);
+    for (const secret of [slackToken, slackBotToken, wrongToken, envToken]) expect(everything).not.toContain(secret);
     expect(everything).not.toContain('for-leaks');
   });
 });

@@ -16,7 +16,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 4: Slack's bot: check a bot token, open the DM, send, and read the thread's replies; the bot token as its own keychain item (AC-14)
       Check: pnpm test packages/core/src/integrations/slack/client.test.ts packages/core/src/secrets/token-store.test.ts packages/core/src/integrations/slack/no-token-leaks.test.ts
       Files: packages/core/src/integrations/slack/client.ts, packages/core/src/secrets/token-store.ts, packages/core/src/test/fake-slack.ts, the tests
-- [ ] Task 5: Save and remove Slack's bot token, checked first, and say `bot` in Slack's connection (AC-14)
+- [x] Task 5: Save and remove Slack's bot token, checked first, and say `bot` in Slack's connection (AC-14)
       Check: pnpm test packages/core/src/routes/slack.test.ts
       Files: packages/core/src/integrations/slack/connection.ts, packages/core/src/routes/slack.ts, the test
 - [ ] Task 6: `respond()` takes where the answer came from, and the `answered` step keeps it; the `waiting` step can be marked unsent (AC-2, AC-13)

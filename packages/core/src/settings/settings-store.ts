@@ -33,6 +33,8 @@ const SettingsSchema = z.looseObject({
   github: GitHubSavedConnectionSchema.optional(),
   /** Who the Slack token belongs to, as Slack said (spec 016). */
   slack: SlackSavedConnectionSchema.optional(),
+  /** The workspace Slack's bot token belongs to, which Slack checked (spec 057, Q2); the token is in the keychain. */
+  slackBot: z.object({ url: z.string() }).optional().catch(undefined),
   /** The bot and whose mentions it reads, as Discord said (spec 016). */
   discord: DiscordSavedConnectionSchema.optional(),
   /**
