@@ -1027,6 +1027,42 @@ describe('approvals (spec 012)', () => {
   });
 });
 
+describe('a question answered from outside Orynx (spec 057)', () => {
+  const library = {
+    question: 'Which date library should we use?',
+    header: 'Library',
+    multiSelect: false,
+    options: [
+      { label: 'date-fns', description: 'Already a dependency' },
+      { label: 'Day.js', description: 'Smaller, a new dependency' },
+    ],
+  };
+  const asks = [{ tool: 'AskUserQuestion', input: { questions: [library] } }, { finish: 'Used Day.js.' }];
+
+  it('AC-2: the answered step says where you answered from, and one from Orynx says nothing', async () => {
+    const { service, records } = await setUp({ script: asks });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const [approval] = await waitingCalls(records);
+
+    const answers = [{ picked: ['Day.js'], other: null }];
+    expect(await service.respond('0000000000000001', approval?.id ?? '', { answers }, 'discord')).toBe('answered');
+    const record = await settled(records);
+    const step = record.session.activities.find((activity) => activity.kind === 'answered');
+    expect(step).toMatchObject({ answers: [{ header: 'Library', answer: 'Day.js' }], from: 'discord' });
+  });
+
+  it("AC-13: the waiting step says where the question couldn't be sent", async () => {
+    const { service, records } = await setUp({ script: asks });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const [approval] = await waitingCalls(records);
+
+    await service.unsent('0000000000000001', approval?.id ?? '', ['discord']);
+    const record = await records.get('0000000000000001');
+    expect(record?.session.activities.at(-1)).toMatchObject({ kind: 'waiting', unsent: ['discord'] });
+    await service.stop('0000000000000001');
+  });
+});
+
 describe("Claude's questions (spec 051)", () => {
   const library = {
     question: 'Which date library should we use?',

@@ -56,6 +56,8 @@ import {
   type AgentAsk,
   type AgentBrief,
   type AgentEvent,
+  type AgentWork,
+  type AnswerSource,
   type QuestionAnswers,
 } from '../agents/agent-adapter.ts';
 import type { EventBus } from '../events/event-bus.ts';
@@ -201,7 +203,11 @@ export interface SessionService {
     id: string,
     approvalId: string,
     decision: ApprovalDecision | { answers: readonly QuestionAnswer[] },
+    /** Where you answered outside Orynx (spec 057), for the answered step; left out in Orynx. */
+    from?: AnswerSource,
   ): Promise<RespondResult>;
+  /** Marks a waiting call's step with the services its question or ping couldn't be sent to (spec 057, AC-13). */
+  unsent(id: string, approvalId: string, where: readonly ('slack' | 'discord')[]): Promise<void>;
   /**
    * A follow-up (spec 013, Q1): read by Claude after its current step while it works, or carried on in Claude
    * Code's own session once it has finished or stopped. Sends one at a time for each session.
@@ -547,6 +553,14 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
   const stepTimers = new Map<string, { timer: NodeJS.Timeout; again: boolean }>();
   /** Your answers on their way to Claude, by approval id, so the log says what you answered. */
   const given = new Map<string, ApprovalAnswer>();
+  /** Where a session's question is being answered from outside Orynx, until its answered step (spec 057). */
+  const answeredFrom = new Map<string, AnswerSource>();
+  function withSource(id: string, work: AgentWork): AgentWork {
+    if (work.kind !== 'answered') return work;
+    const from = answeredFrom.get(id);
+    answeredFrom.delete(id);
+    return from === undefined ? work : { ...work, from };
+  }
   /** The calls an answer has been taken for, so a second answer, from another tab, is late. */
   const claimed = new Set<string>();
   /** Follow-ups one at a time for each session (spec 013). */
@@ -763,7 +777,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         const update = () =>
           change(id, (record) => {
             const next = {
-              ...withProgress(record, (progress) => addWork(progress, event.work)),
+              ...withProgress(record, (progress) => addWork(progress, withSource(id, event.work))),
               ...keepLast(logWork(record.commandLog, event.work, record.commandsDropped), record.commandsDropped),
             };
             if (!finished) return next;
@@ -2260,7 +2274,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       return there ? 'cannot_restart' : 'gone';
     },
 
-    async respond(id, approvalId, decision) {
+    async respond(id, approvalId, decision, from) {
       const record = await records.get(id);
       if (record === null) return 'not_found';
       const waiting = record.session.approvals.find((approval) => approval.id === approvalId);
@@ -2294,6 +2308,8 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         }
       }
       given.set(approvalId, choice ?? 'answer');
+      // Questions wait one at a time in a session, so the next answered step is this one's.
+      if (from !== undefined && answers !== null) answeredFrom.set(id, from);
       const answered = await run.adapter.respond(
         run.agentId,
         approvalId,
@@ -2301,9 +2317,24 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       );
       if (!answered) {
         given.delete(approvalId);
+        answeredFrom.delete(id);
         return 'already_answered';
       }
       return 'answered';
+    },
+
+    async unsent(id, approvalId, where) {
+      await change(id, (record) => ({
+        ...record,
+        session: {
+          ...record.session,
+          activities: record.session.activities.map((activity) =>
+            activity.kind === 'waiting' && activity.approvalId === approvalId
+              ? { ...activity, unsent: [...where] }
+              : activity,
+          ),
+        },
+      }));
     },
 
     async close() {

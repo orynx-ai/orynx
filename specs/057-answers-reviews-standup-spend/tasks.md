@@ -19,7 +19,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 5: Save and remove Slack's bot token, checked first, and say `bot` in Slack's connection (AC-14)
       Check: pnpm test packages/core/src/routes/slack.test.ts
       Files: packages/core/src/integrations/slack/connection.ts, packages/core/src/routes/slack.ts, the test
-- [ ] Task 6: `respond()` takes where the answer came from, and the `answered` step keeps it; the `waiting` step can be marked unsent (AC-2, AC-13)
+- [x] Task 6: `respond()` takes where the answer came from, and the `answered` step keeps it; the `waiting` step can be marked unsent (AC-2, AC-13)
       Check: pnpm test packages/core/src/sessions/session-service.test.ts -t "answered from"
       Files: packages/core/src/sessions/session-service.ts, packages/core/src/sessions/session-service.test.ts
 - [ ] Task 7: The chat-answers service: send on `asked` as the row says, check each thread every 15 s, answer with the first good reply, say "Sent to Claude.", ignore pings and other people (AC-1, AC-2, AC-3, AC-5, AC-9, AC-10, AC-11, AC-16)
