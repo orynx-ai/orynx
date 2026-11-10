@@ -14,11 +14,13 @@ import {
   TabsTrigger,
 } from '@devhub/ui';
 import { portWords } from '../port-words.ts';
-import { useSessionChanges, useSessionPorts } from '../queries.ts';
+import { useReviewThreads, useSessionChanges, useSessionPorts } from '../queries.ts';
+import { reviewCommentsWords } from '../review-words.ts';
 import { contextWords } from '../ticket-tab-words.ts';
 import { ChangesPanel, ChangesTools } from './changes-panel.tsx';
 import { ContextPanel, contextOf } from './context-panel.tsx';
 import { PortsPanel } from './ports-panel.tsx';
+import { hasReviewComments, ReviewCommentsPanel } from './review-comments-panel.tsx';
 
 /** The number of changed files for the Changes tab: null while they load, none when they couldn't be read. */
 function useChangedCount(sessionId: string): number | null | undefined {
@@ -46,15 +48,31 @@ export function SessionDetails({ session }: { session: Session }) {
   // Ports, first, where Orynx can find a session's servers: a Build with a worktree, not on Windows (spec 042).
   const ports = session.terminal;
   const listening = useSessionPorts(session).data?.length ?? 0;
+  // Reviewers' threads on the session's own pull request (spec 057, B), counted once they're read.
+  const comments = hasReviewComments(session);
+  const threads = useReviewThreads(session.id, comments).data;
+  const threadCount = threads?.result === 'threads' ? threads.threads.length : 0;
   // The tab you picked, or Ports for a run session and Changes for any other (spec 042, Q9); never switched for you.
   const fallback = ports && session.intent === 'run' ? 'ports' : 'changes';
-  const picked = (tab === 'ports' && ports) || (tab === 'context' && items > 0) || tab === 'changes' ? tab : undefined;
+  const picked =
+    (tab === 'ports' && ports) ||
+    (tab === 'context' && items > 0) ||
+    (tab === 'comments' && comments) ||
+    tab === 'changes'
+      ? tab
+      : undefined;
   const shown = ask ? 'context' : (picked ?? fallback);
   const changes = <ChangesPanel session={session} />;
   const context = <ContextPanel session={session} />;
   const portsPanel = <PortsPanel session={session} />;
-  const titles = { ports: portWords.tab, changes: 'Changes', context: contextWords.tab };
-  const panels = { ports: portsPanel, changes, context };
+  const commentsPanel = <ReviewCommentsPanel session={session} />;
+  const titles = {
+    ports: portWords.tab,
+    changes: 'Changes',
+    context: contextWords.tab,
+    comments: reviewCommentsWords.tab,
+  };
+  const panels = { ports: portsPanel, changes, context, comments: commentsPanel };
   return (
     <>
       <Tabs
@@ -65,7 +83,10 @@ export function SessionDetails({ session }: { session: Session }) {
               ...search,
               // Only a pick that isn't the session's own default goes in the address.
               tab:
-                (next === 'context' || next === 'ports' || next === 'changes') && next !== fallback ? next : undefined,
+                (next === 'context' || next === 'ports' || next === 'changes' || next === 'comments') &&
+                next !== fallback
+                  ? next
+                  : undefined,
             }),
             replace: true,
           });
@@ -81,6 +102,11 @@ export function SessionDetails({ session }: { session: Session }) {
                 Changes
               </TabsTrigger>
             )}
+            {comments ? (
+              <TabsTrigger value="comments" {...(threadCount === 0 ? {} : { count: threadCount })}>
+                {reviewCommentsWords.tab}
+              </TabsTrigger>
+            ) : null}
             {ports ? (
               <TabsTrigger value="ports" {...(listening === 0 ? {} : { count: listening })}>
                 {portWords.tab}
@@ -113,6 +139,11 @@ export function SessionDetails({ session }: { session: Session }) {
             {changes}
           </TabsContent>
         )}
+        {comments ? (
+          <TabsContent value="comments" className="relative min-h-0 overflow-y-auto pt-3">
+            {commentsPanel}
+          </TabsContent>
+        ) : null}
         {ports ? (
           <TabsContent value="ports" className="relative min-h-0 overflow-y-auto pt-3">
             {portsPanel}

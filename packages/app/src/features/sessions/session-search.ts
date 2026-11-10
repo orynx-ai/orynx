@@ -7,7 +7,7 @@ import { z } from 'zod';
 export const SessionSearchSchema = z.object({
   // A value Orynx can't read opens the default instead of an error page. `ticket` is the Context tab's old name.
   tab: z
-    .enum(['context', 'ticket', 'changes', 'ports'])
+    .enum(['context', 'ticket', 'changes', 'ports', 'comments'])
     .transform((tab) => (tab === 'ticket' ? 'context' : tab))
     .optional()
     .catch(undefined),
