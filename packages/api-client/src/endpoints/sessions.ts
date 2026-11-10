@@ -15,6 +15,7 @@ import {
   ReplyRequestSchema,
   RespondToApprovalRequestSchema,
   ReviewCommentChangeSchema,
+  PullThreadsAnswerSchema,
   ReviewStatusSchema,
   SendMessageAnswerSchema,
   SendMessageRequestSchema,
@@ -49,6 +50,7 @@ import {
   type PostReviewAnswer,
   type PostReviewRequest,
   type ReviewCommentChange,
+  type PullThreadsAnswer,
   type ReviewStatus,
 } from '@devhub/contracts';
 
@@ -190,6 +192,12 @@ export async function patchReviewComment(
 export async function getReviewStatus(http: AxiosInstance, id: string): Promise<ReviewStatus> {
   const res = await http.get<unknown>(pathFor(apiRoutes.sessionReviewStatus, id));
   return ReviewStatusSchema.parse(res.data);
+}
+
+/** The pull request's review threads, read from GitHub now, for the Review comments tab (spec 057, B). */
+export async function getReviewThreads(http: AxiosInstance, id: string): Promise<PullThreadsAnswer> {
+  const res = await http.get<unknown>(pathFor(apiRoutes.sessionReviewThreads, id));
+  return PullThreadsAnswerSchema.parse(res.data);
 }
 
 /** Posts one review with your summary and verdict, and the kept comments not posted yet (spec 050). */

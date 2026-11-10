@@ -64,9 +64,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 19: An inbox sync that sees a session's pull request change says `session.changed` for it (AC-24)
       Check: pnpm test packages/core/src/sessions/pull-changes.test.ts packages/core/src/sessions/session-service.test.ts -t "AC-24|between syncs"
       Files: packages/core/src/sessions/pull-changes.ts, packages/core/src/sessions/session-service.ts, packages/core/src/create-server.ts, the tests
-- [ ] Task 20: api-client: the review threads and their query options (AC-18)
-      Check: pnpm test packages/api-client/src/endpoints/sessions.test.ts
-      Files: packages/api-client/src/endpoints/sessions.ts, packages/api-client/src/client.ts, packages/api-client/src/queries.ts
+- [x] Task 20: api-client: the review threads and their query options (AC-18)
+      Check: pnpm test packages/api-client/src/sessions.test.ts -t "spec 057"
+      Files: packages/api-client/src/endpoints/sessions.ts, packages/api-client/src/client.ts, packages/api-client/src/queries.ts, packages/api-client/src/index.ts
 - [ ] Task 21: The Review comments tab: count, skeleton, empty, error with Try again, threads by file with their labels, and Reply to reviewers (AC-18, AC-19, AC-21, AC-22, AC-23, AC-25, AC-26)
       Check: pnpm test packages/app/src/features/sessions/components/review-comments-panel.test.tsx packages/app/src/features/sessions/session-screen.test.tsx
       Files: packages/app/src/features/sessions/components/review-comments-panel.tsx, packages/app/src/features/sessions/session-screen.tsx, packages/app/src/features/sessions/review-words.ts, the tests

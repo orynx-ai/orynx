@@ -39,6 +39,7 @@ export {
   sessionQueryOptions,
   sessionReviewStatusQueryKey,
   sessionReviewStatusQueryOptions,
+  sessionReviewThreadsQueryOptions,
   sessionPagesQueryOptions,
   sessionsQueryOptions,
   setupQueryOptions,

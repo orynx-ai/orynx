@@ -164,6 +164,11 @@ export function sessionReviewStatusQueryOptions(api: ApiClient, id: string) {
   return queryOptions({ queryKey: sessionReviewStatusQueryKey(id), queryFn: () => api.reviewStatus(id), staleTime: 0 });
 }
 
+/** The review threads (spec 057, B), under the session's own key, so a change to the session reads them again. */
+export function sessionReviewThreadsQueryOptions(api: ApiClient, id: string) {
+  return queryOptions({ queryKey: [...sessionQueryKey(id), 'review-threads'], queryFn: () => api.reviewThreads(id) });
+}
+
 export function sessionDiffQueryOptions(api: ApiClient, id: string, path: string) {
   return queryOptions({
     queryKey: sessionDiffQueryKey(id, path),

@@ -60,6 +60,7 @@ import {
   type PostReviewAnswer,
   type PostReviewRequest,
   type ReviewCommentChange,
+  type PullThreadsAnswer,
   type ReviewStatus,
   type PushDraftAnswer,
   type SendMessageAnswer,
@@ -173,6 +174,7 @@ import {
   postRepliesDraft,
   postReview,
   getReviewStatus,
+  getReviewThreads,
   patchReviewComment,
   postSession,
   postSessionDiscard,
@@ -287,6 +289,8 @@ export interface ApiClient {
   changeReviewComment(id: string, commentId: string, change: ReviewCommentChange): Promise<void>;
   /** How many commits were pushed since Claude read the pull request, or why Orynx can't say (spec 050). */
   reviewStatus(id: string): Promise<ReviewStatus>;
+  /** The pull request's review threads for the Review comments tab and the diff (spec 057, B). */
+  reviewThreads(id: string): Promise<PullThreadsAnswer>;
   /** Posts one review, only on your press: its link, why it can't, or GitHub's problem (spec 050). */
   postReview(id: string, request: PostReviewRequest): Promise<PostReviewAnswer>;
   /** Posts the pull request's link in the session's thread, only on your press (spec 016, E). */
@@ -506,6 +510,8 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
         Promise.reject(toApiRequestError(error)),
       ),
     reviewStatus: (id) => getReviewStatus(http, id).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    reviewThreads: (id) =>
+      getReviewThreads(http, id).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     postReview: (id, request) =>
       postReview(http, id, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     postThreadReply: (id, text) =>
