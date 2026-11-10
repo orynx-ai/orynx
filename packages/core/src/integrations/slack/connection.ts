@@ -75,7 +75,7 @@ export function createSlackConnection(options: SlackConnectionOptions): SlackCon
   const now = options.now ?? Date.now;
 
   async function read(): Promise<SlackConnection> {
-    return { saved: (await settings.read()).slack ?? null, envToken };
+    return { saved: (await settings.read()).slack ?? null, envToken, bot: false };
   }
 
   function reportKeychain(error: TokenStoreError): void {

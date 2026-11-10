@@ -172,6 +172,13 @@ export const QuietHoursSchema = z
   .refine((hours) => hours.from !== hours.to, { message: 'Quiet hours need a different start and end.', path: ['to'] });
 export type QuietHours = z.infer<typeof QuietHoursSchema>;
 
+/**
+ * Settings › Notifications' "Answer Claude's questions from chat" (spec 057, A): a question with one call goes to Slack,
+ * Discord or both, and your reply answers it. Off by default; a service that isn't connected is skipped.
+ */
+export const ChatAnswersSchema = z.object({ on: z.boolean(), to: z.enum(['slack', 'discord', 'both']) });
+export type ChatAnswers = z.infer<typeof ChatAnswersSchema>;
+
 /** GET /api/notifications/settings: Settings › Notifications, saved on the server so every tab shares them. */
 export const NotificationSettingsSchema = z.object({
   popUps: z.boolean(),
@@ -185,6 +192,7 @@ export const NotificationSettingsSchema = z.object({
   quietHours: QuietHoursSchema,
   /** Still tell me when Claude is waiting for approval. */
   approvalsBreakThrough: z.boolean(),
+  chatAnswers: ChatAnswersSchema,
 });
 export type NotificationSettings = z.infer<typeof NotificationSettingsSchema>;
 
@@ -209,6 +217,7 @@ export const defaultNotificationSettings: NotificationSettings = {
   doNotDisturb: { on: false, length: 'hour', until: null },
   quietHours: { on: true, from: '19:00', to: '09:00', days: [true, true, true, true, true, false, false] },
   approvalsBreakThrough: true,
+  chatAnswers: { on: false, to: 'both' },
 };
 
 /**
@@ -226,6 +235,7 @@ export const NotificationSettingsChangeSchema = z
     doNotDisturb: DoNotDisturbSchema.optional(),
     quietHours: QuietHoursSchema.optional(),
     approvalsBreakThrough: z.boolean().optional(),
+    chatAnswers: ChatAnswersSchema.optional(),
   })
   .refine((change) => Object.values(change).some((value) => value !== undefined), {
     message: 'Send at least one setting.',

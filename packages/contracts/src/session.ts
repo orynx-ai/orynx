@@ -304,6 +304,8 @@ export const SessionActivitySchema = z.discriminatedUnion('kind', [
     approvalId: z.string().min(1),
     about: z.enum(['command', 'edit', 'ticket', 'server', 'jira', 'question']),
     text: z.string().nullable(),
+    /** Where the question or its ping couldn't be sent (spec 057, AC-13); absent when it went everywhere asked. */
+    unsent: z.array(z.enum(['slack', 'discord'])).optional(),
   }),
   /** Commands that ran, in the order they were allowed. */
   ActivityBaseSchema.extend({
@@ -328,6 +330,8 @@ export const SessionActivitySchema = z.discriminatedUnion('kind', [
   ActivityBaseSchema.extend({
     kind: z.literal('answered'),
     answers: z.array(z.object({ header: z.string(), answer: z.string().min(1) })).min(1),
+    /** Where you answered from outside Orynx (spec 057); absent when you answered in Orynx. */
+    from: z.enum(['slack', 'discord', 'notification']).optional(),
   }),
   /** Claude can't run commands in this session (spec 012, Q2b). */
   ActivityBaseSchema.extend({ kind: z.literal('no_commands'), reason: z.enum(['no_sandbox']) }),

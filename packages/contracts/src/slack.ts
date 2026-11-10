@@ -55,5 +55,14 @@ export const SlackConnectionSchema = z.object({
   saved: SlackSavedConnectionSchema.nullable(),
   /** DEVHUB_TOKENS_FROM_ENV is on and `.env` has DEVHUB_SLACK_USER_TOKEN, so the token may be left empty. */
   envToken: z.boolean(),
+  /**
+   * A bot token is saved, so Orynx can DM you Claude's questions (spec 057, Q2): a message your own token posts never
+   * notifies you. False in an answer from before spec 057.
+   */
+  bot: z.boolean().default(false),
 });
 export type SlackConnection = z.infer<typeof SlackConnectionSchema>;
+
+/** PUT /api/slack/connection/bot: check the bot's token with Slack, then save it (spec 057, AC-14). DELETE removes it. */
+export const SlackBotRequestSchema = z.object({ token: tokenSchema('Paste your bot token.') });
+export type SlackBotRequest = z.input<typeof SlackBotRequestSchema>;

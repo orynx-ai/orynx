@@ -394,6 +394,38 @@ describe("Claude's questions (spec 051)", () => {
   });
 });
 
+describe('a question answered from outside Orynx (spec 057)', () => {
+  it("AC-2, AC-13: the answered step says where you answered, and the waiting step where it couldn't be sent", () => {
+    const activities: SessionActivity[] = [
+      {
+        id: 'a1',
+        state: 'running',
+        kind: 'waiting',
+        approvalId: 'approval-q1',
+        about: 'question',
+        text: 'Which date library should we use?',
+        unsent: ['discord'],
+      },
+      {
+        id: 'a2',
+        state: 'done',
+        kind: 'answered',
+        answers: [{ header: 'Library', answer: 'date-fns' }],
+        from: 'discord',
+      },
+    ];
+    expect(SessionSchema.parse(makeSession({ activities })).activities).toEqual(activities);
+    const elsewhere = {
+      id: 'a3',
+      state: 'done',
+      kind: 'answered',
+      answers: [{ header: 'A', answer: 'B' }],
+      from: 'email',
+    };
+    expect(SessionActivitySchema.safeParse(elsewhere).success).toBe(false);
+  });
+});
+
 describe('a session in spec 013', () => {
   it('AC-11, AC-12: holds the step with your message, never an empty one', () => {
     const activities: SessionActivity[] = [

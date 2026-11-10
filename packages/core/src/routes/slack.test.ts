@@ -49,6 +49,7 @@ describe('/api/slack/connection (spec 016)', () => {
     ).toEqual({
       saved: null,
       envToken: false,
+      bot: false,
     });
     const put = await app.inject({
       method: 'PUT',
