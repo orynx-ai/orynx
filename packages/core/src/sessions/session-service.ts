@@ -764,8 +764,10 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
           session: {
             ...record.session,
             turns: record.session.turns + event.turns,
-            // shortcut: assumes Claude Code's total carries across a resume; if a follow-up starts it at 0, add each run's.
-            costUsd: event.costUsd ?? record.session.costUsd,
+            // Claude Code's total carries across a resume, and a crashed run can say 0, so it never goes down (spec 057,
+            // AC-44). shortcut: if a follow-up ever starts the total at 0, add each run's instead.
+            costUsd:
+              event.costUsd === null ? record.session.costUsd : Math.max(event.costUsd, record.session.costUsd ?? 0),
           },
         })),
       );

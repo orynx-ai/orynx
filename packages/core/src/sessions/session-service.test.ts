@@ -1835,6 +1835,20 @@ describe('follow-ups (spec 013)', () => {
     });
   });
 
+  it('057 AC-44: a follow-up whose run ends with a total of 0, as a crash can, keeps the cost saved', async () => {
+    const { service, records, sdk } = await setUp({
+      script: [{ finish: 'First.', turns: 3, costUsd: 1.42 }],
+      later: [[{ finish: 'Crashed.', turns: 0, costUsd: 0 }]],
+    });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    expect((await settled(records)).session).toMatchObject({ costUsd: 1.42 });
+    await service.send(id, 'One more thing');
+    await vi.waitFor(() => {
+      expect(sdk.runs[1]).toBeDefined();
+    });
+    expect((await settled(records)).session).toMatchObject({ costUsd: 1.42 });
+  });
+
   it('AC-2, AC-23: says the files changed at most once a second, with the session’s id only', async () => {
     const { service, records, heard } = await setUp({
       script: [edit('src/a.ts'), edit('src/b.ts'), edit('src/c.ts'), { finish: 'Done.' }],

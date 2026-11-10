@@ -121,9 +121,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 35: Contracts: the summary's `costUsd` and `startedAt`, Claude's limit in status (`claudeLimit`), and the `limit_near` notification with its words and place (AC-42, AC-45, AC-50)
       Check: pnpm test packages/contracts/src/session.test.ts packages/contracts/src/status.test.ts packages/contracts/src/notifications.test.ts; pnpm typecheck
       Files: packages/contracts/src/session.ts, packages/contracts/src/status.ts, packages/contracts/src/notifications.ts, packages/core/src/sessions/session-store.ts, packages/core/src/status/status-service.ts, packages/app/src/words/claude-limit.ts, packages/app/src/features/notifications/words.ts, the tests
-- [ ] Task 36: A cost never goes down, and the list's summaries carry it (AC-42, AC-44, AC-50)
-      Check: pnpm test packages/core/src/sessions/file-session-store.test.ts packages/core/src/sessions/session-service.test.ts -t "cost"
-      Files: packages/core/src/sessions/session-service.ts, packages/core/src/sessions/session-store.ts, the tests
+- [x] Task 36: A cost never goes down, and the list's summaries carry it (AC-42, AC-44, AC-50)
+      Check: pnpm test packages/core/src/sessions/session-service.test.ts -t "cost"
+      Files: packages/core/src/sessions/session-service.ts, the test (the list's cost came with task 35)
 - [ ] Task 37: Read `rate_limit_event`, keep the warning until it resets or says `allowed`, and notify once per window (AC-45, AC-46, AC-47, AC-48)
       Check: pnpm test packages/core/src/agents/claude/sdk-messages.test.ts packages/core/src/limits/limit-watch.test.ts
       Files: packages/core/src/agents/claude/sdk-messages.ts, packages/core/src/agents/agent-adapter.ts, packages/core/src/limits/limit-watch.ts, packages/core/src/notifications/session-notifications.ts, packages/core/src/status/status-service.ts, packages/core/src/create-server.ts, the tests
