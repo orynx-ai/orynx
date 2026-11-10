@@ -394,6 +394,14 @@ describe("Claude's questions (spec 051)", () => {
   });
 });
 
+describe('a review read ahead (spec 057, D)', () => {
+  it('AC-35: a session says Orynx started it without a press, and one saved before says it didn’t', () => {
+    expect(SessionSchema.parse({ ...makeSession(), readAhead: true }).readAhead).toBe(true);
+    const { readAhead: _, ...before } = makeSession();
+    expect(SessionSchema.parse(before).readAhead).toBe(false);
+  });
+});
+
 describe('a question answered from outside Orynx (spec 057)', () => {
   it("AC-2, AC-13: the answered step says where you answered, and the waiting step where it couldn't be sent", () => {
     const activities: SessionActivity[] = [

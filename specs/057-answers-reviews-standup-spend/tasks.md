@@ -100,7 +100,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 ## D. Review requests read ahead
 
-- [ ] Task 30: Contracts: the `readReviewsAhead` preference (off), a session's `readAhead` mark, and the inbox row's `readAhead` (AC-34, AC-35)
+- [x] Task 30: Contracts: the `readReviewsAhead` preference (off), a session's `readAhead` mark, and the inbox row's `readAhead` (AC-34, AC-35)
       Check: pnpm test packages/contracts/src/preferences.test.ts packages/contracts/src/inbox.test.ts; pnpm typecheck
       Files: packages/contracts/src/preferences.ts, packages/contracts/src/inbox.ts, packages/contracts/src/session.ts, packages/contracts/src/testing.ts
 - [ ] Task 31: The read-ahead queue as a pure function: one at a time, fewer than 2 working, 5 a day, oldest first, withdrawn dropped (AC-37, AC-38, AC-39, AC-40)

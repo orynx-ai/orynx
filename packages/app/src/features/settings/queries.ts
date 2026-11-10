@@ -399,6 +399,7 @@ function withChange(preferences: Preferences, change: PreferencesChange): Prefer
         ? preferences.deleteSessionsAfterDays
         : change.deleteSessionsAfterDays,
     replyWaitMinutes: change.replyWaitMinutes ?? preferences.replyWaitMinutes,
+    readReviewsAhead: change.readReviewsAhead ?? preferences.readReviewsAhead,
   };
 }
 
@@ -445,6 +446,7 @@ function withoutChange(current: Preferences, change: PreferencesChange, saved: P
   const cleanupStillSet =
     change.deleteSessionsAfterDays !== undefined && current.deleteSessionsAfterDays === change.deleteSessionsAfterDays;
   const waitStillSet = change.replyWaitMinutes !== undefined && current.replyWaitMinutes === change.replyWaitMinutes;
+  const aheadStillSet = change.readReviewsAhead !== undefined && current.readReviewsAhead === change.readReviewsAhead;
   return {
     permissions,
     repositoryPermissions,
@@ -454,6 +456,7 @@ function withoutChange(current: Preferences, change: PreferencesChange, saved: P
     jiraChanges: jiraStillSet ? saved.jiraChanges : current.jiraChanges,
     deleteSessionsAfterDays: cleanupStillSet ? saved.deleteSessionsAfterDays : current.deleteSessionsAfterDays,
     replyWaitMinutes: waitStillSet ? saved.replyWaitMinutes : current.replyWaitMinutes,
+    readReviewsAhead: aheadStillSet ? saved.readReviewsAhead : current.readReviewsAhead,
   };
 }
 

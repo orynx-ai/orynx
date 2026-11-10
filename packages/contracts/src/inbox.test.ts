@@ -46,6 +46,14 @@ describe('InboxSchema', () => {
     expect(InboxItemSchema.parse(makeInboxItem({ subject })).subject).not.toHaveProperty('fork');
   });
 
+  it('057 AC-35, AC-36, AC-38: a review request says whether Claude is reading it ahead, and a row cached before doesn’t', () => {
+    const reading = { state: 'reading', sessionId: '0000000000000001' } as const;
+    expect(InboxItemSchema.parse(makeInboxItem({ readAhead: reading })).readAhead).toEqual(reading);
+    const { readAhead: _, ...cached } = makeInboxItem();
+    expect(InboxItemSchema.parse(cached).readAhead).toBeNull();
+    expect(InboxItemSchema.safeParse({ ...cached, readAhead: { state: 'done', sessionId: null } }).success).toBe(false);
+  });
+
   it('links out only to https on github.com or a Jira Cloud site, so a row can never send you elsewhere', () => {
     for (const url of ['https://github.com/acme/web-app/pull/1', 'https://your-team.atlassian.net/browse/PROJ-1']) {
       expect(InboxItemSchema.safeParse({ ...makeInboxItem(), target: { kind: 'external', url } }).success).toBe(true);

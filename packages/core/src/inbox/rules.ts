@@ -42,6 +42,7 @@ function messageRow(tool: 'slack' | 'discord', record: SlackMessageRecord | Disc
     reason: { kind: 'no_reply' },
     waitingSince: record.waitingSince,
     target: { kind: 'external', url: record.url },
+    readAhead: null,
   };
 }
 
@@ -68,6 +69,7 @@ function jiraRow(record: JiraIssueRecord): InboxItem {
     reason: jiraReason(record),
     waitingSince: record.waitingSince,
     target: { kind: 'external', url: record.url },
+    readAhead: null,
   };
 }
 
@@ -102,6 +104,7 @@ function pullRequestRow(record: PullRequestRecord, rules: InboxRules): InboxItem
     reason: found.reason,
     waitingSince: found.since,
     target: { kind: 'external', url: found.url },
+    readAhead: null,
   };
 }
 
@@ -117,6 +120,7 @@ function sessionRow(session: SessionSummary): InboxItem {
     reason: { kind: 'approval' },
     waitingSince: session.updatedAt,
     target: { kind: 'session', sessionId: session.id },
+    readAhead: null,
   };
 }
 
@@ -154,6 +158,7 @@ export function inboxItems(sources: InboxSources, rules: InboxRules, wait?: Repl
           reason: { kind: 'approval' },
           waitingSince: session.updatedAt,
           target: { kind: 'session', sessionId: session.id },
+          readAhead: null,
         });
       }
     }

@@ -103,6 +103,14 @@ export const InboxItemSchema = z.object({
   /** When the wait started; the list puts the longest wait first. */
   waitingSince: z.iso.datetime(),
   target: InboxTargetSchema,
+  /**
+   * A review request Claude reads ahead (spec 057, D): waiting its turn, reading, or its draft ready, with the session.
+   * Null for any other row, and for one cached before spec 057.
+   */
+  readAhead: z
+    .object({ state: z.enum(['waiting', 'reading', 'ready']), sessionId: z.string().min(1).nullable() })
+    .nullable()
+    .default(null),
 });
 export type InboxItem = z.infer<typeof InboxItemSchema>;
 

@@ -709,6 +709,8 @@ export const SessionSchema = SessionSummarySchema.extend({
   review: SessionReviewSchema.nullable().default(null),
   /** Its reply in the first thread it was sent (spec 016, E); null while offered, and on every other session. */
   threadReply: ThreadReplySchema.nullable().default(null),
+  /** A review Orynx started without a press, as Read review requests ahead does (spec 057, D). */
+  readAhead: z.boolean().default(false),
 });
 export type Session = z.infer<typeof SessionSchema>;
 

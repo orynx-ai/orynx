@@ -1773,6 +1773,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         unpushed: true,
         review: null,
         threadReply: null,
+        readAhead: false,
       },
       repository: { id: folder.id, path: folder.path },
       worktree: join(options.worktrees.root, id),
@@ -1905,6 +1906,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
                 posted: [],
               },
         threadReply: null,
+        readAhead: false,
       },
       repository: folder === null ? null : { id: folder.id, path: folder.path },
       // An Ask session makes no worktree: Claude reads the folder itself (spec 026), or an empty one (spec 031). A
