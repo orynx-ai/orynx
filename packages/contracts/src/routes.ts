@@ -89,6 +89,7 @@ export const apiPaths = {
   updatesCheck: '/updates/check',
   updatesInstall: '/updates/install',
   storage: '/storage',
+  standup: '/standup',
 } as const;
 
 type ApiPaths = typeof apiPaths;
@@ -180,6 +181,7 @@ export const apiRoutes = {
   updatesCheck: `${apiPrefix}${apiPaths.updatesCheck}`,
   updatesInstall: `${apiPrefix}${apiPaths.updatesInstall}`,
   storage: `${apiPrefix}${apiPaths.storage}`,
+  standup: `${apiPrefix}${apiPaths.standup}`,
 } as const satisfies { [K in keyof ApiPaths]: `${typeof apiPrefix}${ApiPaths[K]}` };
 
 export type ApiRoute = (typeof apiRoutes)[keyof typeof apiRoutes];

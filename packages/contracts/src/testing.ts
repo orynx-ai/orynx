@@ -13,6 +13,7 @@ import {
 import { ClaudeSignedInSchema, type ClaudeSignedIn } from './claude.ts';
 import { GitHubConnectionSchema, type GitHubConnection } from './github.ts';
 import { SlackConnectionSchema, type SlackConnection } from './slack.ts';
+import { StandupSchema, type Standup } from './standup.ts';
 import { DiscordConnectionSchema, type DiscordConnection } from './discord.ts';
 import { InboxItemSchema, InboxSchema, type Inbox, type InboxItem } from './inbox.ts';
 import { JiraConnectionSchema, type JiraConnection } from './jira.ts';
@@ -924,6 +925,26 @@ export function makeNewJiraTicket(overrides: Partial<NewJiraTicket> = {}): NewJi
     typeId: '10001',
     priorityId: '3',
     dueDate: null,
+    ...overrides,
+  });
+}
+
+/** Friday's standup, drafted on Monday 9 Nov 2026 (spec 057, C). */
+export function makeStandup(overrides: Partial<Standup> = {}): Standup {
+  return StandupSchema.parse({
+    day: '2026-11-06',
+    text: [
+      'Yesterday',
+      '• Merged #2974 Add bulk archive (PROJ-1423)',
+      '• Moved PROJ-1419 to In Review',
+      '',
+      'Today',
+      '• PROJ-1431 Retry failed exports (In Progress)',
+      '',
+      'Blockers',
+      '• None',
+    ].join('\n'),
+    missing: [],
     ...overrides,
   });
 }

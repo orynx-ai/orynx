@@ -79,7 +79,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 ## C. Standup draft
 
-- [ ] Task 24: Contracts: the standup and its route path (AC-27, AC-31)
+- [x] Task 24: Contracts: the standup and its route path (AC-27, AC-31)
       Check: pnpm test packages/contracts/src/standup.test.ts; pnpm typecheck
       Files: packages/contracts/src/standup.ts, packages/contracts/src/routes.ts, packages/contracts/src/index.ts, packages/contracts/src/testing.ts
 - [ ] Task 25: GitHub's search for your pull requests merged on a day, and Jira's for the issues you moved that day (AC-28, AC-31)
