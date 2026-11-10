@@ -9,6 +9,8 @@ export const queryKeys = {
   sessions: ['sessions'] as const,
   /** Under `sessions`, so the sessions.changed a delete sends measures it again (spec 047, D). */
   storage: ['sessions', 'storage'] as const,
+  /** On its own, so nothing refetches a draft you're editing (spec 057, C). */
+  standup: ['standup'] as const,
   jiraConnection: ['jira', 'connection'] as const,
   jiraProjects: ['jira', 'projects'] as const,
   githubConnection: ['github', 'connection'] as const,
@@ -444,4 +446,9 @@ export function skillsQueryOptions(api: ApiClient, repositoryId: string | null) 
     staleTime: Infinity,
     retry: false,
   });
+}
+
+/** The standup's draft (spec 057, C): read each time the dialog opens, never kept between openings. */
+export function standupQueryOptions(api: ApiClient) {
+  return queryOptions({ queryKey: queryKeys.standup, queryFn: () => api.standup(), staleTime: 0, gcTime: 0 });
 }

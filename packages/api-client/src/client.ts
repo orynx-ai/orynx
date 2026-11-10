@@ -82,6 +82,7 @@ import {
   type StartSessionAnswer,
   type StartSessionRequest,
   type Status,
+  type Standup,
   type Storage,
   type OpenSprints,
   type JiraTicketTypes,
@@ -127,6 +128,7 @@ import {
 import { getThreadPreview, postThreadReply, postThreadReplyDismiss } from './endpoints/threads.ts';
 import { deleteInboxCache, getInbox, postInboxRefresh } from './endpoints/inbox.ts';
 import { getSyncActivity } from './endpoints/sync-activity.ts';
+import { getStandup } from './endpoints/standup.ts';
 import { getStorage } from './endpoints/storage.ts';
 import {
   deleteJiraConnection,
@@ -390,6 +392,8 @@ export interface ApiClient {
   clearInboxCache(): Promise<void>;
   /** Settings › Coding agent › Storage (spec 047, D): the worktrees' size, and what each choice would delete now. */
   storage(): Promise<Storage>;
+  /** The standup's draft for your last working day (spec 057, C). */
+  standup(): Promise<Standup>;
   /** Tickets' sprint and its tickets, from the server's cache (spec 008). It syncs with the inbox. */
   tickets(): Promise<Tickets>;
   /** A project's open sprints for Tickets' Sprint menu (spec 020), asked of Jira now. */
@@ -602,6 +606,7 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       getSyncActivity(http, query).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     clearInboxCache: () => deleteInboxCache(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     storage: () => getStorage(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    standup: () => getStandup(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     tickets: () => getTickets(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     ticketsSprints: (project) =>
       getTicketsSprints(http, project).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
