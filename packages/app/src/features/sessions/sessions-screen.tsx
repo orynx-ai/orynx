@@ -1,4 +1,4 @@
-// Design: none — the spec's "View all" list has no screen design; reuses the page frame, SessionItem, EmptyState, and Tickets' search and filters (spec 039); the spend tiles above the list and each row's cost: Design: none — spec 057, Q8
+// Design: none — the spec's "View all" list has no screen design; reuses the page frame, SessionItem, EmptyState, and Tickets' search and filters (spec 039); the spend tiles above the list and each row's cost: Design: none — spec 057, Q8, and the warning near Claude's limit above them
 import { useCallback, useEffect, useId, useRef, useState, type ChangeEvent, type RefObject } from 'react';
 import { useForm, useWatch, type UseFormReturn } from 'react-hook-form';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
@@ -9,6 +9,7 @@ import { RecentSearchBox } from '../../shell/recent-search-box.tsx';
 import { useRecentSearches } from '../../stores/recent-searches.ts';
 import { DeleteSessions } from './components/delete-sessions.tsx';
 import { SessionMenu } from './components/session-menu.tsx';
+import { LimitCallout } from '../../shell/limit-callout.tsx';
 import { SpendTiles } from './components/spend-tiles.tsx';
 import { usageWords } from './step-words.ts';
 import { SessionsLoadError } from './components/sessions-load-error.tsx';
@@ -202,6 +203,7 @@ export function SessionsScreen() {
       <PageBody>
         {/* The page bar shows "Sessions"; the heading names the page for screen readers too. */}
         <h1 className="sr-only">Sessions</h1>
+        <LimitCallout />
         {sessions.isError ? null : <SpendTiles sessions={sessions.data?.sessions} />}
         {sessions.isPending ? (
           <div role="status" className="flex flex-col gap-0.5">

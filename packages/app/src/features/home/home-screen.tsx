@@ -1,4 +1,5 @@
-// Design: docs/design/screens/home.html — page bar (Synced line and Refresh), greeting (the waiting banner floats from the shell: the user's call, 20 Oct 2026), composer with + Add context and its pickers, quick starts and the "Needs your attention" panel; Write my standup among the quick starts, and its dialog: Design: none — spec 057, Q8
+// Design: docs/design/screens/home.html — page bar (Synced line and Refresh), greeting (the waiting banner floats from the shell: the user's call, 20 Oct 2026), composer with + Add context and its pickers, quick starts and the "Needs your attention" panel; Write my standup among the quick starts, and its dialog: Design: none — spec 057, Q8; the warning near Claude's limit at the top: Design: none — spec 057, Q8
+import { LimitCallout } from '../../shell/limit-callout.tsx';
 import { PageBar, PageBody, PageBreadcrumb } from '../../shell/page-frame.tsx';
 import { AttentionPanel } from './components/attention-panel.tsx';
 import { HomeComposer } from './components/home-composer.tsx';
@@ -19,6 +20,7 @@ export function HomeScreen() {
     <>
       <PageBar breadcrumb={<PageBreadcrumb crumbs={[{ label: 'Home' }]} />} actions={<SyncStatus />} />
       <PageBody width="narrow">
+        <LimitCallout />
         {/* 48 px above the greeting (design system, --space-12): the body's 24 px plus 24 px here. */}
         <h1 className="m-0 mt-6 text-center font-serif text-display font-normal">{composerWords.heading[mode]}</h1>
         <HomeComposer />
