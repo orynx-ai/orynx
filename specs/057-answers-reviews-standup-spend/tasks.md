@@ -112,9 +112,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 33: Settings › Coding agent: "Read review requests ahead" (AC-34)
       Check: pnpm test packages/app/src/features/settings/components/read-ahead.test.tsx packages/app/src/features/settings/components/coding-agent-panel.test.tsx
       Files: packages/app/src/features/settings/components/read-ahead.tsx, packages/app/src/features/settings/components/coding-agent-panel.tsx, the test
-- [ ] Task 34: Home's review row: "Waiting to read", "Claude is reading", "Draft ready", and Review opens the session already reading (AC-35, AC-36, AC-38)
-      Check: pnpm test packages/app/src/features/home/components/attention-panel.test.tsx
-      Files: packages/app/src/features/home/components/attention-panel.tsx, packages/app/src/features/home/composer-words.ts, the test
+- [x] Task 34: Home's review row: "Waiting to read", "Claude is reading", "Draft ready", and Review opens the session already reading (AC-35, AC-36, AC-38)
+      Check: pnpm test packages/app/src/features/home/inbox-words.test.ts packages/app/src/features/home/components/attention-panel.test.tsx
+      Files: packages/app/src/features/home/inbox-words.ts, the test
 
 ## E. Spend and limit warnings
 

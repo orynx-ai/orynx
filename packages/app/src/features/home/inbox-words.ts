@@ -59,9 +59,20 @@ function duePill(on: string, highPriorityBug: boolean, now: Date): ReasonPill {
 }
 
 /** Q2b, Q2d, Q2e: the pill for a row, at `now`. */
+/** A review read ahead (spec 057, D, Q9), in place of its wait. */
+const readAheadPills = {
+  waiting: { text: 'Waiting to read', tone: 'neutral' },
+  reading: { text: 'Claude is reading', tone: 'info' },
+  ready: { text: 'Draft ready', tone: 'success' },
+} as const;
+
 export function reasonPill(item: InboxItem, now: Date): ReasonPill {
   const waited = now.getTime() - Date.parse(item.waitingSince);
   const { reason } = item;
+  if (reason.kind === 'review_requested' && item.readAhead !== null) {
+    const { text, tone } = readAheadPills[item.readAhead.state];
+    return { text, spoken: text, tone };
+  }
   switch (reason.kind) {
     case 'review_requested':
       return withWait('Review requested', waited, waited < day ? 'info' : 'warning');
@@ -145,9 +156,15 @@ export function threadChipOf(
 
 export function rowAction(item: InboxItem): RowAction {
   const { subject, target } = item;
-  if (target.kind === 'session') {
-    return { kind: 'session', sessionId: target.sessionId, label: 'Open session', name: `Open session: ${item.title}` };
-  }
+  const open = (sessionId: string): RowAction => ({
+    kind: 'session',
+    sessionId,
+    label: 'Open session',
+    name: `Open session: ${item.title}`,
+  });
+  if (target.kind === 'session') return open(target.sessionId);
+  // A review Claude reads ahead opens that session (spec 057, AC-36), as a live session's row does.
+  if (item.readAhead?.sessionId != null) return open(item.readAhead.sessionId);
   // A message's thread can go to Claude as context (spec 016, AC-29).
   if (subject.kind === 'message') {
     const thread = threadChipOf(item);
