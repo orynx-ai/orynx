@@ -341,6 +341,9 @@ describe('listSessions', () => {
         mode: 'build',
         // Spec 052: the agent, for the words of the session's screens.
         agent: 'claude',
+        // Spec 057: its cost and when it started, for the Sessions page's spend.
+        costUsd: null,
+        startedAt: '2026-10-16T09:56:00.000Z',
       },
     ]);
   });

@@ -125,6 +125,10 @@ export const SessionSummarySchema = z.object({
   mode: SessionModeSchema.default('build'),
   /** The agent it runs on, for life (spec 052); a session saved before spec 052 ran on Claude. */
   agent: AgentIdSchema.default('claude'),
+  /** What its turns would cost at API prices (spec 047), for the Sessions page (spec 057, E); null when none said. */
+  costUsd: z.number().nonnegative().nullable().default(null),
+  /** When it started, so the Sessions page counts its cost on that day (spec 057, E); null in a summary from before. */
+  startedAt: z.iso.datetime().nullable().default(null),
 });
 export type SessionSummary = z.infer<typeof SessionSummarySchema>;
 

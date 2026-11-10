@@ -118,9 +118,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 ## E. Spend and limit warnings
 
-- [ ] Task 35: Contracts: the summary's `costUsd` and `startedAt`, Claude's limit in status, and the `limit_near` notification (AC-42, AC-45, AC-50)
+- [x] Task 35: Contracts: the summary's `costUsd` and `startedAt`, Claude's limit in status (`claudeLimit`), and the `limit_near` notification with its words and place (AC-42, AC-45, AC-50)
       Check: pnpm test packages/contracts/src/session.test.ts packages/contracts/src/status.test.ts packages/contracts/src/notifications.test.ts; pnpm typecheck
-      Files: packages/contracts/src/session.ts, packages/contracts/src/status.ts, packages/contracts/src/notifications.ts, packages/contracts/src/testing.ts
+      Files: packages/contracts/src/session.ts, packages/contracts/src/status.ts, packages/contracts/src/notifications.ts, packages/core/src/sessions/session-store.ts, packages/core/src/status/status-service.ts, packages/app/src/words/claude-limit.ts, packages/app/src/features/notifications/words.ts, the tests
 - [ ] Task 36: A cost never goes down, and the list's summaries carry it (AC-42, AC-44, AC-50)
       Check: pnpm test packages/core/src/sessions/file-session-store.test.ts packages/core/src/sessions/session-service.test.ts -t "cost"
       Files: packages/core/src/sessions/session-service.ts, packages/core/src/sessions/session-store.ts, the tests

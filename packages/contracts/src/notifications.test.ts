@@ -174,3 +174,11 @@ describe('answering from chat (spec 057)', () => {
     expect(NotificationSettingsChangeSchema.safeParse({ chatAnswers: { on: true, to: 'email' } }).success).toBe(false);
   });
 });
+
+describe('close to your Claude limit (spec 057, E)', () => {
+  it('AC-45, AC-48: says which limit, how much is used and when it resets, under the Session hit a limit row', () => {
+    const what = { kind: 'limit_near', window: 'seven_day', usedPercent: 91, resetsAt: '2026-11-12T09:00:00.000Z' };
+    expect(NotificationWhatSchema.parse(what)).toEqual(what);
+    expect(notificationEventOf('limit_near')).toBe('session_limit');
+  });
+});

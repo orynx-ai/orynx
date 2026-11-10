@@ -10,6 +10,7 @@ import {
   ApiErrorSchema,
   sessionTitleLimit,
   SessionActivitySchema,
+  SessionSummarySchema,
   SessionApprovalSchema,
   SessionIdSchema,
   SessionListQuerySchema,
@@ -391,6 +392,15 @@ describe("Claude's questions (spec 051)", () => {
     expect(SessionActivitySchema.safeParse({ id: 'a4', state: 'done', kind: 'answered', answers: [] }).success).toBe(
       false,
     );
+  });
+});
+
+describe("a session's cost in the lists (spec 057, E)", () => {
+  it('AC-42, AC-50: a summary carries what it cost and when it started, and one from before says neither', () => {
+    const summary = { ...makeSessionSummary(), costUsd: 1.42, startedAt: '2026-11-09T09:00:00.000Z' };
+    expect(SessionSummarySchema.parse(summary)).toMatchObject({ costUsd: 1.42, startedAt: '2026-11-09T09:00:00.000Z' });
+    const { costUsd: _, startedAt: __, ...before } = summary;
+    expect(SessionSummarySchema.parse(before)).toMatchObject({ costUsd: null, startedAt: null });
   });
 });
 

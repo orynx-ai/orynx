@@ -5,6 +5,7 @@ import { JiraIssueKeySchema, JiraLinkSchema } from './jira.ts';
 import { AgentIdSchema } from './agent-models.ts';
 import { SessionIdSchema, SessionReadySchema, SessionSourceSchema } from './session.ts';
 import { SlackLinkSchema } from './slack.ts';
+import { ClaudeLimitSchema } from './status.ts';
 import { OrynxVersionSchema } from './updates.ts';
 
 /**
@@ -57,6 +58,8 @@ export const NotificationWhatSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('session_failed'), session: NotificationSessionSchema }),
   /** Claude's usage limit ended it. */
   z.object({ kind: z.literal('session_limit'), session: NotificationSessionSchema }),
+  /** Close to one of Claude's plan limits (spec 057, AC-45), once for each window. */
+  z.object({ kind: z.literal('limit_near'), ...ClaudeLimitSchema.shape }),
   z.object({
     kind: z.literal('review_requested'),
     pullRequest: NotificationPullRequestSchema,
@@ -133,6 +136,8 @@ export type NotificationEvent = z.infer<typeof NotificationEventSchema>;
 /** The row that decides how a kind of notification reaches you; null for one that only waits in the bell. */
 export function notificationEventOf(kind: NotificationKind): NotificationEvent | null {
   if (kind === 'sessions_cleaned') return null;
+  // Close to the limit goes with the limit that ends a session (spec 057, Q7).
+  if (kind === 'limit_near') return 'session_limit';
   return kind === 'session_stopped' || kind === 'session_failed' ? 'session_ended' : kind;
 }
 
