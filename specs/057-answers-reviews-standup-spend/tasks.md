@@ -58,9 +58,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 17: GitHub's thread read gains side, outdated, link and every comment's time; spec 049's draft still reads the last comment (AC-19, AC-21)
       Check: pnpm test packages/core/src/integrations/github/client.test.ts packages/core/src/sessions/pull-requests.test.ts
       Files: packages/core/src/integrations/github/client.ts, packages/core/src/test/fake-github.ts, the tests
-- [ ] Task 18: `GET /api/sessions/:id/review-threads`: the threads read live, `placeable` from the files changed since the last push, 404 with no PR, and a failure as its own answer (AC-18, AC-21, AC-23, AC-25)
-      Check: pnpm test packages/core/src/routes/review-threads.test.ts
-      Files: packages/core/src/sessions/review-threads.ts, packages/core/src/routes/sessions.ts, the test
+- [x] Task 18: `GET /api/sessions/:id/review-threads`: the threads read live, `placeable` from the files changed since the last push, 404 with no PR, and a failure as its own answer (AC-18, AC-21, AC-23, AC-25)
+      Check: pnpm test packages/core/src/sessions/pull-requests.test.ts packages/core/src/routes/sessions.test.ts -t "spec 057"
+      Files: packages/core/src/sessions/pull-requests.ts, packages/core/src/sessions/session-service.ts, packages/core/src/routes/sessions.ts, the tests
 - [ ] Task 19: An inbox sync that sees a session's pull request change says `session.changed` for it (AC-24)
       Check: pnpm test packages/core/src/sessions/session-service.test.ts -t "review comments"
       Files: packages/core/src/sessions/session-service.ts, packages/core/src/create-server.ts, the test

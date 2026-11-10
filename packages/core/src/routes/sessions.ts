@@ -17,6 +17,7 @@ import {
   PushDraftAnswerSchema,
   PushRequestSchema,
   ReplyAnswerSchema,
+  PullThreadsAnswerSchema,
   ReplyDraftAnswerSchema,
   ReplyRequestSchema,
   RespondToApprovalRequestSchema,
@@ -310,6 +311,13 @@ export const sessionsRoutes: FastifyPluginCallbackZod<{ sessions: SessionStore; 
       },
     },
     async (request, reply) => (await service.push(request.params.id, request.body)) ?? reply.code(404).send(notFound),
+  );
+
+  // Spec 057: the pull request's review threads, read from GitHub as the Review comments tab opens.
+  app.get(
+    apiPaths.sessionReviewThreads,
+    { schema: { params: SessionParamsSchema, response: { 200: PullThreadsAnswerSchema, 404: ApiErrorSchema } } },
+    async (request, reply) => (await service.reviewThreads(request.params.id)) ?? reply.code(404).send(notFound),
   );
 
   // Spec 049: Claude's replies to the review threads, which write nothing; then posting them, only on your press.

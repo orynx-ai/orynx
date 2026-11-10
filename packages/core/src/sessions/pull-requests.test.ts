@@ -958,3 +958,81 @@ describe('replying to reviewers (spec 049)', () => {
     expect(await offline.pulls.postReplies(id, request)).toEqual({ result: 'cannot', reason: 'not_connected' });
   });
 });
+
+describe('review comments in the diff (spec 057, B)', () => {
+  const pullRequest = makeSessionPullRequest();
+  const commented: FakePullContext = {
+    number: 2841,
+    threads: [
+      {
+        id: 'PRRT_a',
+        resolved: false,
+        path: 'README.md',
+        line: 1,
+        comments: [{ author: 'maria', body: 'A better title?' }],
+      },
+      {
+        id: 'PRRT_b',
+        resolved: false,
+        path: 'notes.md',
+        line: 1,
+        comments: [{ author: 'sam', body: 'Drop this file.' }],
+      },
+      {
+        id: 'PRRT_c',
+        resolved: false,
+        path: 'README.md',
+        line: 1,
+        outdated: true,
+        comments: [{ author: 'priya', body: 'Old.' }],
+      },
+      {
+        id: 'PRRT_d',
+        resolved: false,
+        path: 'README.md',
+        line: null,
+        comments: [{ author: 'kai', body: 'Whole file.' }],
+      },
+      { id: 'PRRT_e', resolved: true, path: 'README.md', line: 1, comments: [{ author: 'kai', body: 'Done.' }] },
+    ],
+  };
+
+  it('AC-18, AC-20, AC-21: reads the open threads with every comment, and only the ones the diff can show are placeable', async () => {
+    const { repos, worktree, pulls } = await setUp({ session: { state: 'pr_open', pullRequest } });
+    await writeFile(join(worktree, 'notes.md'), 'draft\n');
+    await repos.git(worktree, 'add', 'notes.md');
+    await repos.git(worktree, 'commit', '-m', 'notes');
+    await repos.git(worktree, 'push', 'origin', 'feat/PROJ-1423');
+    // A change after the push: notes.md's lines no longer match the pull request's.
+    await writeFile(join(worktree, 'notes.md'), 'draft, longer\n');
+    github.use(acceptingReviewThreads([commented]));
+
+    const answer = await pulls.reviewThreads(id);
+    expect(answer?.result).toBe('threads');
+    const threads = answer?.result === 'threads' ? answer.threads : [];
+    expect(threads.map(({ id: thread, placeable }) => [thread, placeable])).toEqual([
+      ['PRRT_a', true],
+      ['PRRT_b', false],
+      ['PRRT_c', false],
+      ['PRRT_d', false],
+    ]);
+    expect(threads[0]).toMatchObject({
+      path: 'README.md',
+      line: 1,
+      side: 'new',
+      outdated: false,
+      url: 'https://github.com/acme/web-app/pull/2841#discussion_r100',
+      comments: [{ author: 'maria', body: 'A better title?', at: '2026-11-09T15:00:00.000Z' }],
+    });
+  });
+
+  it('AC-23, AC-25: says why it can’t: no pull request, GitHub not connected, or GitHub not answering', async () => {
+    expect(await (await setUp()).pulls.reviewThreads(id)).toEqual({ result: 'cannot', reason: 'no_pull_request' });
+    const offline = await setUp({ connected: false, session: { state: 'pr_open', pullRequest } });
+    expect(await offline.pulls.reviewThreads(id)).toEqual({ result: 'cannot', reason: 'not_connected' });
+    const { pulls } = await setUp({ session: { state: 'pr_open', pullRequest } });
+    github.use(http.post(graphqlUrl, () => HttpResponse.error()));
+    expect(await pulls.reviewThreads(id)).toEqual({ result: 'failed', problem: { kind: 'github_unreachable' } });
+    expect(await pulls.reviewThreads('fedcba9876543210')).toBeNull();
+  });
+});

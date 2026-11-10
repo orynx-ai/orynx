@@ -10,6 +10,7 @@ import {
   PortActionAnswerSchema,
   PostReviewAnswerSchema,
   ReplyAnswerSchema,
+  PullThreadsAnswerSchema,
   ReplyDraftAnswerSchema,
   ReviewStatusSchema,
   SendMessageAnswerSchema,
@@ -647,6 +648,18 @@ describe('Create pull request and Push changes (spec 014)', () => {
       expect(res.statusCode).toBe(404);
       expect(ApiErrorSchema.parse(res.json()).code).toBe('not_found');
     }
+  });
+});
+
+describe('Review comments (spec 057, B)', () => {
+  const threadsOf = (id: string) => apiRoutes.sessionReviewThreads.replace(':id', id);
+
+  it('AC-25: a session with no pull request has no review comments, and an unknown one is 404', async () => {
+    const { app } = await serverWith({ id: 'done', state: 'done' });
+    const none = await app.inject({ method: 'GET', url: threadsOf('done'), headers });
+    expect(none.statusCode).toBe(200);
+    expect(PullThreadsAnswerSchema.parse(none.json())).toEqual({ result: 'cannot', reason: 'no_pull_request' });
+    expect((await app.inject({ method: 'GET', url: threadsOf('fedcba9876543210'), headers })).statusCode).toBe(404);
   });
 });
 

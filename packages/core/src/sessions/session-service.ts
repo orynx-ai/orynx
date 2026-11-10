@@ -25,6 +25,7 @@ import type {
   PushRequest,
   QuestionAnswer,
   ReplyAnswer,
+  PullThreadsAnswer,
   ReplyDraftAnswer,
   ReplyRequest,
   Repository,
@@ -234,6 +235,8 @@ export interface SessionService {
   push(id: string, request: PushRequest): Promise<PushAnswer | null>;
   /** The review threads with Claude's replies, which writes nothing (spec 049); null for no such session. */
   draftReplies(id: string): Promise<ReplyDraftAnswer | null>;
+  /** The pull request's review threads for the Review comments tab and the diff (spec 057, B); reads only. */
+  reviewThreads(id: string): Promise<PullThreadsAnswer | null>;
   /** Posts the replies and resolves the ticked threads, on your press only (spec 049); null for no such session. */
   postReplies(id: string, request: ReplyRequest): Promise<ReplyAnswer | null>;
   /** Keeps, drops or edits one of Claude's review comments (spec 050); a posted one stays as it went. */
@@ -2104,6 +2107,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     draftPush: (id) => pullRequests.draftPush(id),
     push: (id, request) => whilePublishing(id, pullRequests.push(id, request)),
     draftReplies: (id) => pullRequests.draftReplies(id),
+    reviewThreads: (id) => pullRequests.reviewThreads(id),
     postReplies: (id, request) => pullRequests.postReplies(id, request),
     changeReviewComment: (id, commentId, change) => reviews.changeComment(id, commentId, change),
     reviewStatus: (id) => reviews.status(id),
