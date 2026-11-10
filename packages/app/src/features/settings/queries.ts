@@ -26,6 +26,7 @@ import type {
   DiscordConnection,
   DiscordConnectionRequest,
   IntegrationId,
+  SlackBotRequest,
   SlackConnection,
   SlackConnectionRequest,
   GitHubConnection,
@@ -241,6 +242,31 @@ export function useDisconnectSlack() {
     onSuccess: async () => {
       queryClient.setQueryData<SlackConnection>(queryKeys.slackConnection, (old) => old && { ...old, saved: null });
       await queryClient.invalidateQueries({ queryKey: queryKeys.status });
+    },
+  });
+}
+
+/** Checks a bot token with Slack, then saves it (spec 057, AC-14); fails with the server's words. */
+export function useConnectSlackBot() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation<SlackConnection, ApiRequestError, SlackBotRequest>({
+    mutationFn: (request) => api.connectSlackBot(request),
+    // The request holds the typed token: drop it from the mutation cache as soon as nothing shows it.
+    gcTime: 0,
+    onSuccess: (connection) => {
+      queryClient.setQueryData(queryKeys.slackConnection, connection);
+    },
+  });
+}
+
+export function useDisconnectSlackBot() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.disconnectSlackBot(),
+    onSuccess: () => {
+      queryClient.setQueryData<SlackConnection>(queryKeys.slackConnection, (old) => old && { ...old, bot: false });
     },
   });
 }

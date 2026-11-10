@@ -61,6 +61,7 @@ import {
 import { GitHubConnectionForm, newTokenUrl } from './github-connection-form.tsx';
 import { apiTokensUrl, JiraConnectionForm } from './jira-connection-form.tsx';
 import { ChatConnectionForm } from './chat-connection-form.tsx';
+import { SlackBotForm } from './slack-bot-form.tsx';
 import { ReconnectTokenForm } from './reconnect-token-form.tsx';
 
 interface ConnectionDialogProps {
@@ -181,6 +182,8 @@ interface ManagedDialogProps extends ToolDialogProps {
   disconnectText: string;
   /** Said under it, if anything. */
   disconnectNote?: ReactNode;
+  /** More of what the tool needs, under its details while it's connected: Slack's bot token (spec 057). */
+  extra?: ReactNode;
 }
 
 const ghLogin = 'gh auth login';
@@ -199,6 +202,7 @@ function ManagedDialog({
   disconnect,
   disconnectText: goes,
   disconnectNote,
+  extra,
   openAtStart = false,
 }: ManagedDialogProps) {
   const [open, setOpen] = useState(openAtStart);
@@ -318,6 +322,7 @@ function ManagedDialog({
     body = (
       <>
         <DetailList aria-label={`${name} details`} items={details} />
+        {extra}
         {checkError}
       </>
     );
@@ -641,6 +646,7 @@ export function SlackConnectionDialog({ status, announce, openAtStart }: ToolDia
       connect={connect}
       disconnect={disconnect}
       disconnectText={disconnectText.slack}
+      extra={loaded === undefined || saved === null ? undefined : <SlackBotForm saved={loaded.bot} />}
       loadFailed={connection.isLoadingError}
       details={[
         ...(saved === null ? [] : [{ term: 'Workspace', detail: saved.workspace }]),
