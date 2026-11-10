@@ -47,6 +47,13 @@ const tools: FakeTools = {
       comments: [{ author: 'priya', body: 'Use the existing useSelection hook here.' }],
     },
     { resolved: false, path: 'README.md', line: null, comments: [{ author: 'sam', body: 'Say what archive does.' }] },
+    // Spec 057: on the line the fake Claude Code writes, so the Changes diff shows it under that line.
+    {
+      resolved: false,
+      path: 'src/archive.ts',
+      line: 1,
+      comments: [{ author: 'maria', body: 'Name it `archiveContent`?' }],
+    },
   ],
   // Spec 031: your own pull request, on its own branch; `octocat` is the fake GitHub's login.
   pullRequests: [
@@ -348,6 +355,33 @@ test('AC-22: the page bar and the dialog have no axe violations, at 1280 and 360
         expect(await axeViolations(page), where).toEqual([]);
         expect(await page.evaluate(() => document.documentElement.scrollWidth), where).toBeLessThanOrEqual(width);
       }
+    }
+  }
+});
+
+test('spec 057, AC-18, AC-20, AC-26: Review comments lists the reviewers’ threads, and one on a changed line sits in the diff', async ({
+  page,
+}) => {
+  const details = page.getByRole('region', { name: 'Work details' });
+  for (const width of [1280, 360]) {
+    for (const colorScheme of ['light', 'dark'] as const) {
+      await page.setViewportSize({ width, height: 800 });
+      await page.emulateMedia({ colorScheme });
+      await page.goto(seen.opened ?? '');
+      const where = `at ${String(width)} px, ${colorScheme}`;
+
+      await details
+        .getByRole('list', { name: 'Changed files' })
+        .getByRole('button', { name: /^src\/archive\.ts/ })
+        .click({ timeout: 10_000 });
+      await expect(details.getByRole('article', { name: 'maria on line 1' }), where).toBeVisible({ timeout: 10_000 });
+      expect(await axeViolations(page), where).toEqual([]);
+
+      await details.getByRole('tab', { name: 'Review comments 3' }).click();
+      await expect(details.getByRole('article', { name: 'priya on line 3' }), where).toBeVisible();
+      await expect(details.getByRole('article', { name: 'sam on the whole file' }), where).toBeVisible();
+      expect(await axeViolations(page), where).toEqual([]);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth), where).toBeLessThanOrEqual(width);
     }
   }
 });

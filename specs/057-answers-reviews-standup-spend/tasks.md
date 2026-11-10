@@ -73,7 +73,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 22: Reviewers' notes in the Changes diff and their count in the file list (AC-20, AC-21, AC-26)
       Check: pnpm test packages/app/src/features/sessions/components/changes-panel.test.tsx
       Files: packages/app/src/features/sessions/components/changes-panel.tsx, the test
-- [ ] Task 23: e2e: the tab and a note in the diff on a session's own pull request, with no axe violations in either theme (AC-18, AC-20, AC-26)
+- [x] Task 23: e2e: the tab and a note in the diff on a session's own pull request, with no axe violations in either theme (AC-18, AC-20, AC-26)
       Check: pnpm test:e2e e2e/pull-requests.spec.ts
       Files: e2e/pull-requests.spec.ts, e2e/fake-tools/preload.ts
 
