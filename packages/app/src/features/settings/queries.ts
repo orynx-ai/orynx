@@ -26,6 +26,7 @@ import type {
   DiscordConnection,
   DiscordConnectionRequest,
   IntegrationId,
+  SlackBotRequest,
   SlackConnection,
   SlackConnectionRequest,
   GitHubConnection,
@@ -245,6 +246,31 @@ export function useDisconnectSlack() {
   });
 }
 
+/** Checks a bot token with Slack, then saves it (spec 057, AC-14); fails with the server's words. */
+export function useConnectSlackBot() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation<SlackConnection, ApiRequestError, SlackBotRequest>({
+    mutationFn: (request) => api.connectSlackBot(request),
+    // The request holds the typed token: drop it from the mutation cache as soon as nothing shows it.
+    gcTime: 0,
+    onSuccess: (connection) => {
+      queryClient.setQueryData(queryKeys.slackConnection, connection);
+    },
+  });
+}
+
+export function useDisconnectSlackBot() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.disconnectSlackBot(),
+    onSuccess: () => {
+      queryClient.setQueryData<SlackConnection>(queryKeys.slackConnection, (old) => old && { ...old, bot: false });
+    },
+  });
+}
+
 /** The saved Discord bot and whose mentions it reads (spec 016). */
 export function useDiscordConnection() {
   const api = useApi();
@@ -373,6 +399,7 @@ function withChange(preferences: Preferences, change: PreferencesChange): Prefer
         ? preferences.deleteSessionsAfterDays
         : change.deleteSessionsAfterDays,
     replyWaitMinutes: change.replyWaitMinutes ?? preferences.replyWaitMinutes,
+    readReviewsAhead: change.readReviewsAhead ?? preferences.readReviewsAhead,
   };
 }
 
@@ -419,6 +446,7 @@ function withoutChange(current: Preferences, change: PreferencesChange, saved: P
   const cleanupStillSet =
     change.deleteSessionsAfterDays !== undefined && current.deleteSessionsAfterDays === change.deleteSessionsAfterDays;
   const waitStillSet = change.replyWaitMinutes !== undefined && current.replyWaitMinutes === change.replyWaitMinutes;
+  const aheadStillSet = change.readReviewsAhead !== undefined && current.readReviewsAhead === change.readReviewsAhead;
   return {
     permissions,
     repositoryPermissions,
@@ -428,6 +456,7 @@ function withoutChange(current: Preferences, change: PreferencesChange, saved: P
     jiraChanges: jiraStillSet ? saved.jiraChanges : current.jiraChanges,
     deleteSessionsAfterDays: cleanupStillSet ? saved.deleteSessionsAfterDays : current.deleteSessionsAfterDays,
     replyWaitMinutes: waitStillSet ? saved.replyWaitMinutes : current.replyWaitMinutes,
+    readReviewsAhead: aheadStillSet ? saved.readReviewsAhead : current.readReviewsAhead,
   };
 }
 

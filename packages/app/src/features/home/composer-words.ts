@@ -123,7 +123,24 @@ export const composerWords = {
   },
   failed: "Couldn't start Claude. Try again.",
   tooLong: 'Keep it under 10,000 characters.',
-  quickStarts: { label: 'Quick starts', ticket: 'Pick up a ticket', review: 'Review a pull request' },
+  quickStarts: {
+    label: 'Quick starts',
+    ticket: 'Pick up a ticket',
+    review: 'Review a pull request',
+    standup: 'Write my standup',
+  },
+  /** Write my standup (spec 057, C, Q9). */
+  standup: {
+    title: 'Your standup',
+    copy: 'your standup',
+    close: 'Close',
+    failed: "Couldn't draft your standup.",
+    tryAgain: 'Try again',
+    missing: {
+      jira: "Couldn't read Jira, so Jira moves are missing.",
+      github: "Couldn't read GitHub, so merged pull requests are missing.",
+    },
+  },
   /** A Home row's Fix on your own pull request (spec 047): its tooltip, and the message its session starts from. */
   fix: {
     unresolved_comments: {

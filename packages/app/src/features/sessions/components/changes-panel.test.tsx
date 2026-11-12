@@ -6,8 +6,10 @@ import {
   makeChangedFile,
   makeFileDiff,
   makePreferences,
+  makePullThread,
   makeSession,
   makeSessionChanges,
+  makeSessionPullRequest,
 } from '@devhub/contracts/testing';
 import { FakeEventSource } from '../../../test/fake-event-source.ts';
 import { apiUrl, server, sessionHandler } from '../../../test/msw.ts';
@@ -257,5 +259,55 @@ describe('ChangesPanel', () => {
       'href',
       `cursor://file${worktreePath}`,
     );
+  });
+});
+
+describe("reviewers' notes in the diff (spec 057, B)", () => {
+  const prOpen = makeSession({
+    id,
+    state: 'pr_open',
+    step: 'pull_request',
+    worktreePath,
+    pullRequest: makeSessionPullRequest(),
+  });
+  const path = 'src/content/ContentList.tsx';
+  const added = makePullThread({ id: 'PRRT_a', path, line: 43 });
+  const removed = makePullThread({
+    id: 'PRRT_b',
+    path,
+    line: 52,
+    side: 'old',
+    comments: [{ author: 'sam', body: 'Keep this row?', at: '2026-11-09T15:00:00.000Z' }],
+  });
+  const unplaced = makePullThread({
+    id: 'PRRT_c',
+    path,
+    line: 41,
+    placeable: false,
+    comments: [{ author: 'kai', body: 'Outdated now.', at: '2026-11-09T15:00:00.000Z' }],
+  });
+  const undrawn = makePullThread({
+    id: 'PRRT_d',
+    path,
+    line: 999,
+    comments: [{ author: 'lee', body: 'Far below.', at: '2026-11-09T15:00:00.000Z' }],
+  });
+
+  it('AC-20, AC-21: a placeable thread sits under its line on its side, and the file list counts them', async () => {
+    serve(prOpen, makeSessionChanges(), { [contentList.path]: contentList });
+    server.use(
+      http.get(apiUrl(apiRoutes.sessionReviewThreads), () =>
+        HttpResponse.json({ result: 'threads', threads: [added, removed, unplaced, undrawn] }),
+      ),
+    );
+    await renderApp({ route: `/sessions/${id}?tab=changes` });
+
+    const diff = await screen.findByRole('region', { name: 'Changes in ContentList.tsx' });
+    expect(await within(diff).findByRole('article', { name: 'maria on line 43' })).toBeVisible();
+    expect(within(diff).getByRole('article', { name: 'sam on line 52' })).toBeVisible();
+    expect(within(diff).queryByRole('article', { name: 'kai on line 41' })).toBeNull();
+    expect(within(diff).queryByRole('article', { name: 'lee on line 999' })).toBeNull();
+    const list = screen.getByRole('list', { name: 'Changed files' });
+    expect(within(list).getByRole('button', { name: /^src\/content\/ContentList\.tsx.*3 comments/ })).toBeVisible();
   });
 });

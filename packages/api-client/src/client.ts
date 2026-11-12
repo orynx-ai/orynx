@@ -14,6 +14,7 @@ import {
   type ConnectionCheck,
   type GitHubConnection,
   type GitHubConnectionRequest,
+  type SlackBotRequest,
   type SlackConnection,
   type SlackConnectionRequest,
   type DiscordConnection,
@@ -59,6 +60,7 @@ import {
   type PostReviewAnswer,
   type PostReviewRequest,
   type ReviewCommentChange,
+  type PullThreadsAnswer,
   type ReviewStatus,
   type PushDraftAnswer,
   type SendMessageAnswer,
@@ -80,6 +82,7 @@ import {
   type StartSessionAnswer,
   type StartSessionRequest,
   type Status,
+  type Standup,
   type Storage,
   type OpenSprints,
   type JiraTicketTypes,
@@ -109,9 +112,11 @@ import {
   putGitHubConnection,
 } from './endpoints/github.ts';
 import {
+  deleteSlackBot,
   deleteSlackConnection,
   getSlackConnection,
   postSlackConnectionCheck,
+  putSlackBot,
   putSlackConnection,
 } from './endpoints/slack.ts';
 import {
@@ -123,6 +128,7 @@ import {
 import { getThreadPreview, postThreadReply, postThreadReplyDismiss } from './endpoints/threads.ts';
 import { deleteInboxCache, getInbox, postInboxRefresh } from './endpoints/inbox.ts';
 import { getSyncActivity } from './endpoints/sync-activity.ts';
+import { getStandup } from './endpoints/standup.ts';
 import { getStorage } from './endpoints/storage.ts';
 import {
   deleteJiraConnection,
@@ -170,6 +176,7 @@ import {
   postRepliesDraft,
   postReview,
   getReviewStatus,
+  getReviewThreads,
   patchReviewComment,
   postSession,
   postSessionDiscard,
@@ -284,6 +291,8 @@ export interface ApiClient {
   changeReviewComment(id: string, commentId: string, change: ReviewCommentChange): Promise<void>;
   /** How many commits were pushed since Claude read the pull request, or why Orynx can't say (spec 050). */
   reviewStatus(id: string): Promise<ReviewStatus>;
+  /** The pull request's review threads for the Review comments tab and the diff (spec 057, B). */
+  reviewThreads(id: string): Promise<PullThreadsAnswer>;
   /** Posts one review, only on your press: its link, why it can't, or GitHub's problem (spec 050). */
   postReview(id: string, request: PostReviewRequest): Promise<PostReviewAnswer>;
   /** Posts the pull request's link in the session's thread, only on your press (spec 016, E). */
@@ -314,6 +323,9 @@ export interface ApiClient {
   connectSlack(request: SlackConnectionRequest): Promise<SlackConnection>;
   disconnectSlack(): Promise<void>;
   checkSlackConnection(): Promise<ConnectionCheck>;
+  /** Checks a bot token with Slack, then saves it, so Orynx can DM you Claude's questions (spec 057, AC-14). */
+  connectSlackBot(request: SlackBotRequest): Promise<SlackConnection>;
+  disconnectSlackBot(): Promise<void>;
   /** The saved bot and whose mentions it reads, and whether `.env` holds a Discord token (spec 016). */
   discordConnection(): Promise<DiscordConnection>;
   /** Checks the bot with Discord, then saves; rejects like {@link connectJira}, or user_id_needed for a team's bot. */
@@ -380,6 +392,8 @@ export interface ApiClient {
   clearInboxCache(): Promise<void>;
   /** Settings › Coding agent › Storage (spec 047, D): the worktrees' size, and what each choice would delete now. */
   storage(): Promise<Storage>;
+  /** The standup's draft for your last working day (spec 057, C). */
+  standup(): Promise<Standup>;
   /** Tickets' sprint and its tickets, from the server's cache (spec 008). It syncs with the inbox. */
   tickets(): Promise<Tickets>;
   /** A project's open sprints for Tickets' Sprint menu (spec 020), asked of Jira now. */
@@ -500,6 +514,8 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
         Promise.reject(toApiRequestError(error)),
       ),
     reviewStatus: (id) => getReviewStatus(http, id).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    reviewThreads: (id) =>
+      getReviewThreads(http, id).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     postReview: (id, request) =>
       postReview(http, id, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     postThreadReply: (id, text) =>
@@ -529,6 +545,9 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       putSlackConnection(http, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     disconnectSlack: () =>
       deleteSlackConnection(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    connectSlackBot: (request) =>
+      putSlackBot(http, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    disconnectSlackBot: () => deleteSlackBot(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     checkSlackConnection: () =>
       postSlackConnectionCheck(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     discordConnection: () =>
@@ -587,6 +606,7 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       getSyncActivity(http, query).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     clearInboxCache: () => deleteInboxCache(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     storage: () => getStorage(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    standup: () => getStandup(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     tickets: () => getTickets(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     ticketsSprints: (project) =>
       getTicketsSprints(http, project).catch((error: unknown) => Promise.reject(toApiRequestError(error))),

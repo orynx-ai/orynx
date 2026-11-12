@@ -3,6 +3,7 @@ import { z } from 'zod';
 import {
   apiPaths,
   ConnectionCheckSchema,
+  SlackBotRequestSchema,
   SlackConnectionRequestSchema,
   SlackConnectionSchema,
 } from '@devhub/contracts';
@@ -20,6 +21,18 @@ export const slackRoutes: FastifyPluginCallbackZod<{ slack: SlackConnectionServi
 
   app.delete(apiPaths.slackConnection, { schema: { response: { 204: z.undefined() } } }, async (_request, reply) => {
     await slack.disconnect();
+    return reply.code(204).send();
+  });
+
+  // Slack's bot, which DMs you Claude's questions (spec 057, AC-14).
+  app.put(
+    apiPaths.slackBot,
+    { schema: { body: SlackBotRequestSchema, response: { 200: SlackConnectionSchema } } },
+    (request) => slack.connectBot(request.body.token),
+  );
+
+  app.delete(apiPaths.slackBot, { schema: { response: { 204: z.undefined() } } }, async (_request, reply) => {
+    await slack.disconnectBot();
     return reply.code(204).send();
   });
 

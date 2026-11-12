@@ -1,6 +1,5 @@
-import type { Notification as OrynxNotification, NotificationSettings } from '@devhub/contracts';
+import { delivery, type Notification as OrynxNotification, type NotificationSettings } from '@devhub/contracts';
 import { desktopPermission } from './desktop.ts';
-import { delivery } from './quiet.ts';
 import { playSound } from './sounds.ts';
 import { notificationWords } from './words.ts';
 
@@ -84,6 +83,8 @@ export async function announce(
   settings: NotificationSettings,
   now: Date,
   open: (notification: OrynxNotification) => void,
+  /** The desktop app shows Claude's questions itself, with a reply box (spec 057, AC-15), so they're left out here. */
+  { nativeQuestions = false }: { nativeQuestions?: boolean } = {},
 ): Promise<void> {
   const reaching = arrived
     .filter((notification) => !notification.read)
@@ -91,7 +92,10 @@ export async function announce(
   const sound = reaching.find(({ reach }) => reach.sound !== null)?.reach.sound ?? null;
   if (sound !== null) playSound(sound, settings.volume);
 
-  const desktop = reaching.filter(({ reach }) => reach.desktop);
+  const desktop = reaching.filter(
+    ({ notification: { what }, reach }) =>
+      reach.desktop && !(nativeQuestions && what.kind === 'approval' && what.about === 'question'),
+  );
   if (desktop.length === 0 || desktopPermission() !== 'granted') return;
   if (settings.onlyInBackground && (await someoneLooking())) return;
   for (const { notification } of desktop) {

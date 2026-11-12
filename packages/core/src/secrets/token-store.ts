@@ -11,7 +11,10 @@ export interface StoredToken {
 }
 
 /** Tokens from `.env`. The host passes them only when DEVHUB_TOKENS_FROM_ENV is on. */
-export type EnvTokens = Partial<Record<IntegrationId, string>>;
+/** A keychain item: each tool's token, and Slack's bot token beside yours (spec 057, Q2). */
+export type TokenId = IntegrationId | 'slack_bot';
+
+export type EnvTokens = Partial<Record<TokenId, string>>;
 
 /** Why a token could not be read or saved. The message never contains the token. */
 export class TokenStoreError extends Error {
@@ -30,11 +33,11 @@ export class TokenStoreError extends Error {
 /** The tokens DevHub uses to call Jira, GitHub and Slack. Only `@devhub/core` ever holds one. */
 export interface TokenStore {
   /** The keychain's token, else the `.env` one, else null. */
-  read(tool: IntegrationId): Promise<StoredToken | null>;
+  read(tool: TokenId): Promise<StoredToken | null>;
   /** Always saves to the keychain; `.env` is never written. */
-  save(tool: IntegrationId, token: string): Promise<void>;
+  save(tool: TokenId, token: string): Promise<void>;
   /** Removes the keychain's token. A `.env` token stays until the user edits the file. */
-  remove(tool: IntegrationId): Promise<void>;
+  remove(tool: TokenId): Promise<void>;
 }
 
 export interface TokenStoreOptions {

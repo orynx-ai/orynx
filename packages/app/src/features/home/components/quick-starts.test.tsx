@@ -7,7 +7,7 @@ import { apiUrl, server } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
 
 describe('Home’s quick starts (spec 015, Q12)', () => {
-  it('AC-1: offers Pick up a ticket and Review a pull request, and nothing that can’t work yet', async () => {
+  it('AC-1, 057 AC-27: offers Pick up a ticket, Review a pull request and Write my standup, and nothing that can’t work yet', async () => {
     await renderApp();
     const group = await screen.findByRole('group', { name: 'Quick starts' });
     expect(
@@ -19,7 +19,7 @@ describe('Home’s quick starts (spec 015, Q12)', () => {
       within(group)
         .getAllByRole('button')
         .map((button) => button.textContent),
-    ).toEqual(['Review a pull request']);
+    ).toEqual(['Review a pull request', 'Write my standup']);
     expect(within(group).queryByText(/Fix failing checks|Draft a Slack reply/)).toBeNull();
   });
 

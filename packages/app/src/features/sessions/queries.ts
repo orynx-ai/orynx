@@ -13,6 +13,7 @@ import {
   sessionTerminalQueryOptions,
   sessionQueryKey,
   sessionReviewStatusQueryOptions,
+  sessionReviewThreadsQueryOptions,
   sessionsQueryOptions,
 } from '@devhub/api-client';
 import {
@@ -86,6 +87,15 @@ export function useRespondToApproval(sessionId: string) {
 export function useSessionChanges(sessionId: string) {
   const api = useApi();
   return useQuery(sessionChangesQueryOptions(api, sessionId));
+}
+
+/**
+ * Reviewers' threads on the session's own pull request (spec 057, B), read as the tab or the diff needs them, and again
+ * when the session changes (AC-24). Off for a session with no pull request of its own.
+ */
+export function useReviewThreads(sessionId: string, enabled: boolean) {
+  const api = useApi();
+  return useQuery({ ...sessionReviewThreadsQueryOptions(api, sessionId), enabled });
 }
 
 /**

@@ -1,3 +1,4 @@
+import { GitHubLinkSchema, mostReviewThreads } from '@devhub/contracts';
 import type {
   CannotOpenReason,
   CreatePullRequestAnswer,
@@ -11,6 +12,7 @@ import type {
   PushAnswer,
   PushDraftAnswer,
   PushRequest,
+  PullThreadsAnswer,
   ReplyAnswer,
   ReplyDraftAnswer,
   ReplyProblem,
@@ -104,6 +106,11 @@ export interface PullRequests {
   draftReplies(id: string): Promise<ReplyDraftAnswer | null>;
   /** Posts each reply as you, then resolves each ticked thread, only from your press (spec 049); one at a time. */
   postReplies(id: string, request: ReplyRequest): Promise<ReplyAnswer | null>;
+  /**
+   * The pull request's unresolved review threads for the Review comments tab and the diff (spec 057, B), read from
+   * GitHub now, with which can sit in the Changes diff. Reads only. Null for no such session.
+   */
+  reviewThreads(id: string): Promise<PullThreadsAnswer | null>;
 }
 
 /** Claude's draft reads at most this many lines of the diff, then counts only (Q4). */
@@ -447,6 +454,27 @@ export function createPullRequests(options: PullRequestsOptions): PullRequests {
       };
     },
 
+    async reviewThreads(id) {
+      const record = await records.get(id);
+      if (record === null) return null;
+      const pull = record.session.pullRequest;
+      if (pull === null) return { result: 'cannot', reason: 'no_pull_request' };
+      const credentials = await options.github.credentials();
+      if (credentials?.ok !== true) return { result: 'cannot', reason: 'not_connected' };
+      const [owner = '', name = ''] = pull.repository.split('/');
+      const found = await client.reviewThreads(credentials.token, { owner, name, number: pull.number });
+      if (!found.ok) return { result: 'failed', problem: threadsProblem(found.problem) };
+      const moved = await changedSincePush(record);
+      const threads = found.threads.flatMap(({ url, ...thread }) => {
+        const link = GitHubLinkSchema.safeParse(url);
+        if (!link.success) return [];
+        // A line GitHub still places, in a file whose lines are the pull request's (AC-20).
+        const placeable = !thread.outdated && thread.line !== null && moved !== null && !moved.has(thread.path);
+        return [{ ...thread, url: link.data, comments: thread.comments.slice(0, 20), placeable }];
+      });
+      return { result: 'threads', threads: threads.slice(0, mostReviewThreads) };
+    },
+
     postReplies(id, request) {
       return oneAtATime(id, async () => {
         const record = await records.get(id);
@@ -529,6 +557,19 @@ export function createPullRequests(options: PullRequestsOptions): PullRequests {
     | { result: 'nothing_new' };
 
   /** What Push changes works from: the worktree, the last pushed commit and what's new since; or why it can't. */
+  /**
+   * The files that differ from what origin has of the session's branch, committed or not (spec 057, AC-20): their
+   * lines may not be the pull request's. Null when that can't be told.
+   */
+  async function changedSincePush(record: StoredSession): Promise<Set<string> | null> {
+    const { worktree, session } = record;
+    if (worktree === null || session.branch === null) return null;
+    const pushed = (await git.onOrigin(worktree, session.branch).catch(() => null)) ?? record.pushedCommit;
+    if (pushed === null) return null;
+    const listed = await changes.list(worktree, { commit: pushed }, []);
+    return listed.ok ? new Set(listed.changes.files.map((file) => file.path)) : null;
+  }
+
   async function readyToPush(record: StoredSession): Promise<ReadyToPush> {
     const { session, worktree } = record;
     const no = (reason: CannotPushReason) => ({ result: 'cannot', reason }) as const;

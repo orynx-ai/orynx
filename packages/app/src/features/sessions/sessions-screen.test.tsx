@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { apiRoutes } from '@devhub/contracts';
 import { makeSessionList } from '@devhub/contracts/testing';
 import { apiUrl, server, sessionsHandler } from '../../test/msw.ts';
@@ -276,5 +276,77 @@ describe('recent searches on the Sessions page (spec 039)', () => {
 
     expect(within(content()).queryByRole('group', { name: 'Recent searches' })).not.toBeInTheDocument();
     expect(search).toHaveFocus();
+  });
+});
+
+describe('what your sessions cost (spec 057, E)', () => {
+  // Tuesday 10 Nov 2026, 14:00 on the laptop's own clock.
+  const now = new Date(2026, 10, 10, 14, 0);
+  const at = (day: number, month = 10) => new Date(2026, month, day, 9, 0).toISOString();
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function tile(term: string) {
+    const tiles = within(content()).getByRole('group', { name: 'Spend' });
+    return within(tiles).getByText(term).closest('div');
+  }
+
+  it('AC-42, AC-43: each row says its cost, and the tiles add up today, this week and this month', async () => {
+    vi.useFakeTimers({ toFake: ['Date'], now });
+    server.use(
+      sessionsHandler(
+        makeSessionList([
+          { title: 'Add bulk archive', state: 'done', costUsd: 1.42, startedAt: at(10) },
+          { title: 'Retry exports', state: 'done', costUsd: 2, startedAt: at(9) },
+          { title: 'With Codex', state: 'done', agent: 'codex', costUsd: null, startedAt: at(3) },
+          { title: 'Last month', state: 'done', costUsd: 5, startedAt: at(28, 9) },
+        ]),
+      ),
+    );
+    await renderApp({ route: '/sessions' });
+
+    const list = await within(content()).findByRole('list', { name: 'Sessions' });
+    expect(within(list).getByRole('link', { name: /^Add bulk archive .* ≈ \$1\.42$/ })).toBeVisible();
+    expect(within(list).getByRole('link', { name: /^With Codex/ }).textContent).not.toContain('$');
+    expect(tile('Today')).toHaveTextContent('Today≈ $1.42 1 session');
+    expect(tile('This week')).toHaveTextContent('This week≈ $3.42 2 sessions');
+    expect(tile('This month')).toHaveTextContent('This month≈ $3.42 3 sessions');
+  });
+
+  it('AC-43: a filter on the list leaves the tiles as they are', async () => {
+    vi.useFakeTimers({ toFake: ['Date'], now });
+    server.use(
+      sessionsHandler(
+        makeSessionList([
+          { title: 'Add bulk archive', state: 'done', costUsd: 1.42, startedAt: at(10) },
+          { title: 'Retry exports', state: 'done', costUsd: 2, startedAt: at(10) },
+        ]),
+      ),
+    );
+    await renderApp({ route: '/sessions?q=archive' });
+    await within(content()).findByRole('list', { name: 'Sessions' });
+    expect(tile('Today')).toHaveTextContent('≈ $3.42 2 sessions');
+  });
+
+  it('AC-43: with no sessions the tiles say none, and while they load they keep their place', async () => {
+    vi.useFakeTimers({ toFake: ['Date'], now });
+    server.use(sessionsHandler(makeSessionList([])));
+    await renderApp({ route: '/sessions' });
+    await within(content()).findByText('No sessions yet');
+    expect(tile('This month')).toHaveTextContent('This month≈ $0.00 0 sessions');
+  });
+
+  it('AC-43: the tiles keep their place while the sessions load', async () => {
+    server.use(
+      http.get(apiUrl(apiRoutes.sessions), async () => {
+        await delay('infinite');
+        return HttpResponse.json(makeSessionList([]));
+      }),
+    );
+    await renderApp({ route: '/sessions' });
+    const tiles = await within(content()).findByRole('group', { name: 'Spend' });
+    expect(tiles).toHaveAttribute('aria-busy', 'true');
+    expect(within(tiles).getByText('Today')).toBeVisible();
   });
 });

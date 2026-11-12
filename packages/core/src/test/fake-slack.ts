@@ -149,6 +149,76 @@ export function slackPosts(posted: { channel: string; thread_ts: string; text: s
   });
 }
 
+/** The bot token Slack accepts in these tests (spec 057, A). Not a real token's shape either. */
+export const slackBotToken = 'fake-slack-bot-token-for-tests';
+/** The bot's own user, in the Acme workspace. */
+export const slackBotUserId = 'U07BOT0RYX';
+
+/**
+ * `auth.test` for a bot token (spec 057, AC-14): the bot, its workspace and its scopes. Any other token goes on to
+ * the next handler, so `acceptingAuthTest()` still answers for your own token.
+ */
+export function acceptingBotToken({
+  tokens = [slackBotToken],
+  scopes = ['chat:write', 'im:write', 'im:history'],
+  url = 'https://acme.slack.com/',
+}: { tokens?: readonly string[]; scopes?: readonly string[]; url?: string } = {}) {
+  return http.post(`${slackApi}/auth.test`, ({ request }) => {
+    if (!sentToken(request, tokens)) return undefined;
+    return HttpResponse.json(
+      { ok: true, url, team: 'Acme', user: 'orynx', team_id: 'T024BE7LD', user_id: slackBotUserId, bot_id: 'B07ORYNX' },
+      { headers: { 'x-oauth-scopes': scopes.join(',') } },
+    );
+  });
+}
+
+/** `conversations.open` for the bot's DM with a person: Slack answers the DM channel; `opened` collects who. */
+export function slackDmOpen(channel: string, opened: string[] = []) {
+  return http.post(`${slackApi}/conversations.open`, async ({ request }) => {
+    opened.push((await fieldsOf(request)).get('users') ?? '');
+    return HttpResponse.json({ ok: true, channel: { id: channel } });
+  });
+}
+
+/**
+ * The bot's DM with you as one conversation (spec 057, A): it opens, keeps what the bot posts and what `reply` adds as
+ * you in a thread, with ts in order, and reads a thread back, its first message first, as Slack does.
+ */
+export function slackDmConversation(dm = 'D07BOTDM01') {
+  const messages: { ts: string; user: string; text: string; thread_ts?: string }[] = [];
+  let next = 1793610000;
+  function add(user: string, text: string, thread?: string): string {
+    const ts = `${String(next++)}.000100`;
+    messages.push({ ts, user, text, ...(thread === undefined ? {} : { thread_ts: thread }) });
+    return ts;
+  }
+  const handlers = [
+    slackDmOpen(dm),
+    http.post(`${slackApi}/chat.postMessage`, async ({ request }) => {
+      if (!sentToken(request, [slackBotToken])) return HttpResponse.json({ ok: false, error: 'invalid_auth' });
+      const fields = await fieldsOf(request);
+      const thread = fields.get('thread_ts') ?? undefined;
+      return HttpResponse.json({ ok: true, channel: dm, ts: add(slackBotUserId, fields.get('text') ?? '', thread) });
+    }),
+    http.post(`${slackApi}/conversations.replies`, async ({ request }) => {
+      const ts = (await fieldsOf(request)).get('ts') ?? '';
+      return HttpResponse.json({
+        ok: true,
+        messages: messages.filter((message) => message.ts === ts || message.thread_ts === ts),
+      });
+    }),
+  ];
+  return {
+    dm,
+    handlers,
+    messages,
+    /** What the bot has posted, in order. */
+    sent: () => messages.filter((message) => message.user === slackBotUserId),
+    /** A reply from you in `thread`; its ts. */
+    reply: (text: string, thread: string) => add(slackUserId, text, thread),
+  };
+}
+
 /**
  * MSW standing in for Slack, an outside service, for the test file that calls this. It answers `auth.test`,
  * `users.info`, no mentions and no DMs, and fails any other request, so no test can reach the real internet.

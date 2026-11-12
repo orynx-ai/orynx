@@ -109,6 +109,7 @@ describe('/api/preferences', () => {
       jiraChanges: false,
       deleteSessionsAfterDays: null,
       replyWaitMinutes: 120,
+      readReviewsAhead: false,
     });
   });
 

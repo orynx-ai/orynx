@@ -95,6 +95,8 @@ export type ListedSession = SessionSummary & {
   discardedAt?: string | null;
   pullRequest?: string | null;
   reviewing?: string | null;
+  /** When Orynx started it to read a review request ahead (spec 057, D); null for any other session. */
+  readAheadAt?: string | null;
 };
 
 /** A pull request by its repository and number, as `acme/web-app#2836`, in one case, since GitHub's names have none. */
@@ -164,6 +166,9 @@ export function listedSession(session: Session): ListedSession {
     agent,
     pullRequest,
     reviewing,
+    readAheadAt: session.readAhead ? session.startedAt : null,
+    costUsd: session.costUsd,
+    startedAt: session.startedAt,
   };
 }
 
@@ -245,17 +250,21 @@ export async function listSessions(
   const sorted = [...(await store.list())]
     .filter((session) => !recent || session.discardedAt == null || Date.parse(session.discardedAt) >= cutoff)
     .filter((session) => pinned === undefined || (session.pinnedAt != null) === pinned)
-    .map(({ id, title, state, ready, source, updatedAt, pinnedAt, mode, agent }): SessionSummary => ({
-      id,
-      title,
-      state,
-      ready,
-      source,
-      updatedAt,
-      pinnedAt,
-      mode,
-      agent,
-    }))
+    .map(
+      ({ id, title, state, ready, source, updatedAt, pinnedAt, mode, agent, costUsd, startedAt }): SessionSummary => ({
+        id,
+        title,
+        state,
+        ready,
+        source,
+        updatedAt,
+        pinnedAt,
+        mode,
+        agent,
+        costUsd,
+        startedAt,
+      }),
+    )
     .sort(pinned === true ? pinnedFirst : newerFirst);
   const start = cursor === undefined ? 0 : afterCursor(sorted, cursor);
   const rest = sorted.slice(start);

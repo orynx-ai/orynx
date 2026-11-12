@@ -41,3 +41,4 @@ export type {
 } from './agents/agent-adapter.ts';
 export { type UpdateHost } from './updates/update-service.ts';
 export { createCloneUpdater, type CloneService } from './updates/clone-updater.ts';
+export type { DesktopQuestions } from './chat-answers/chat-answers.ts';

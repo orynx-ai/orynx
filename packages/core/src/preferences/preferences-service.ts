@@ -101,6 +101,8 @@ function fromSettings(settings: Settings): Preferences {
     deleteSessionsAfterDays: cleanup.success ? cleanup.data : null,
     // Only a choice Settings offers counts (spec 016): anything else is 2 h.
     replyWaitMinutes: wait.success ? wait.data : defaultPreferences.replyWaitMinutes,
+    // Only a saved true reads ahead (spec 057, D): it starts sessions without a press, so anything else is off.
+    readReviewsAhead: settings.agent?.['readReviewsAhead'] === true,
   };
 }
 
@@ -129,6 +131,9 @@ function applied(current: Settings, change: PreferencesChange): Settings {
   }
   if (change.editor !== undefined) next.agent = { ...next.agent, editor: change.editor };
   if (change.jiraChanges !== undefined) next.agent = { ...next.agent, jiraChanges: change.jiraChanges };
+  if (change.readReviewsAhead !== undefined) {
+    next.agent = { ...next.agent, readReviewsAhead: change.readReviewsAhead };
+  }
   if (change.deleteSessionsAfterDays !== undefined) {
     next.agent = { ...next.agent, deleteSessionsAfterDays: change.deleteSessionsAfterDays };
   }

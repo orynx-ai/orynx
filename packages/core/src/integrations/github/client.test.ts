@@ -2,6 +2,7 @@ import { delay, http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import {
   acceptingInboxQuery,
+  acceptingMergedSearch,
   acceptingPullContext,
   acceptingPullDiff,
   acceptingPulls,
@@ -693,12 +694,55 @@ describe('review threads (spec 049)', () => {
           id: 'PRRT_a',
           path: 'src/ContentList.tsx',
           line: 42,
+          side: 'new',
+          outdated: false,
+          url: 'https://github.com/acme/web-app/pull/2841#discussion_r100',
           comments: [
-            { author: 'priya', body: 'Use the existing useSelection hook here.' },
-            { author: githubLogin, body: 'Will do.' },
+            { author: 'priya', body: 'Use the existing useSelection hook here.', at: '2026-11-09T15:00:00.000Z' },
+            { author: githubLogin, body: 'Will do.', at: '2026-11-09T15:01:00.000Z' },
           ],
         },
-        { id: 'PRRT_c', path: 'README.md', line: null, comments: [{ author: 'Someone', body: 'A typo.' }] },
+        {
+          id: 'PRRT_c',
+          path: 'README.md',
+          line: null,
+          side: 'new',
+          outdated: false,
+          url: 'https://github.com/acme/web-app/pull/2841#discussion_r300',
+          comments: [{ author: 'Someone', body: 'A typo.', at: '2026-11-09T15:00:00.000Z' }],
+        },
+      ],
+    });
+  });
+
+  it('057 AC-19, AC-21: reads which side a thread is on, whether GitHub calls it outdated, and its link', async () => {
+    github.use(
+      acceptingReviewThreads([
+        {
+          number: 2841,
+          threads: [
+            {
+              id: 'PRRT_d',
+              resolved: false,
+              path: 'src/api.ts',
+              line: 3,
+              side: 'LEFT',
+              outdated: true,
+              comments: [{ author: 'sam', body: 'Why remove this?', at: '2026-11-08T09:30:00Z' }],
+            },
+          ],
+        },
+      ]),
+    );
+    expect(await client.reviewThreads(githubToken, pull)).toMatchObject({
+      ok: true,
+      threads: [
+        {
+          side: 'old',
+          outdated: true,
+          url: 'https://github.com/acme/web-app/pull/2841#discussion_r100',
+          comments: [{ author: 'sam', at: '2026-11-08T09:30:00.000Z' }],
+        },
       ],
     });
   });
@@ -851,6 +895,34 @@ describe('GitHub client: posting a review (spec 050)', () => {
     expect(await client.commitsBetween(githubToken, { ...pull, head: 'e'.repeat(40) })).toEqual({
       ok: false,
       problem: { kind: 'not_found' },
+    });
+  });
+});
+
+describe('your pull requests merged on a day (spec 057, C)', () => {
+  it('AC-28: searches for yours merged that day, and names each with its repository', async () => {
+    const searched: string[] = [];
+    github.use(
+      acceptingMergedSearch([{ repository: 'acme/web-app', number: 2974, title: 'Add bulk archive' }], searched),
+    );
+
+    expect(await client.mergedOn(githubToken, '2026-11-06')).toEqual({
+      ok: true,
+      pulls: [{ repository: 'acme/web-app', number: 2974, title: 'Add bulk archive' }],
+    });
+    expect(searched).toEqual(['is:pr author:@me is:merged merged:2026-11-06']);
+  });
+
+  it('AC-31: a refused token or no answer is a problem, never a throw', async () => {
+    github.use(acceptingMergedSearch([]));
+    expect(await client.mergedOn('fake-wrong-token-for-tests', '2026-11-06')).toMatchObject({
+      ok: false,
+      problem: { kind: 'rejected' },
+    });
+    github.use(http.post(graphqlUrl, () => HttpResponse.error()));
+    expect(await client.mergedOn(githubToken, '2026-11-06')).toMatchObject({
+      ok: false,
+      problem: { kind: 'unreachable' },
     });
   });
 });

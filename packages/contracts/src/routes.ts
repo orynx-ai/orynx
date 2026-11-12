@@ -19,6 +19,7 @@ export const apiPaths = {
   sessionPush: '/sessions/:id/push',
   sessionRepliesDraft: '/sessions/:id/replies/draft',
   sessionReplies: '/sessions/:id/replies',
+  sessionReviewThreads: '/sessions/:id/review-threads',
   sessionReview: '/sessions/:id/review',
   sessionReviewStatus: '/sessions/:id/review/status',
   sessionReviewComment: '/sessions/:id/review/comments/:commentId',
@@ -43,6 +44,7 @@ export const apiPaths = {
   slackConnection: '/slack/connection',
   threadPreview: '/threads/preview',
   slackConnectionCheck: '/slack/connection/check',
+  slackBot: '/slack/connection/bot',
   discordConnection: '/discord/connection',
   discordConnectionCheck: '/discord/connection/check',
   preferences: '/preferences',
@@ -87,6 +89,7 @@ export const apiPaths = {
   updatesCheck: '/updates/check',
   updatesInstall: '/updates/install',
   storage: '/storage',
+  standup: '/standup',
 } as const;
 
 type ApiPaths = typeof apiPaths;
@@ -109,6 +112,7 @@ export const apiRoutes = {
   sessionPush: `${apiPrefix}${apiPaths.sessionPush}`,
   sessionRepliesDraft: `${apiPrefix}${apiPaths.sessionRepliesDraft}`,
   sessionReplies: `${apiPrefix}${apiPaths.sessionReplies}`,
+  sessionReviewThreads: `${apiPrefix}${apiPaths.sessionReviewThreads}`,
   sessionReview: `${apiPrefix}${apiPaths.sessionReview}`,
   sessionReviewStatus: `${apiPrefix}${apiPaths.sessionReviewStatus}`,
   sessionReviewComment: `${apiPrefix}${apiPaths.sessionReviewComment}`,
@@ -133,6 +137,7 @@ export const apiRoutes = {
   slackConnection: `${apiPrefix}${apiPaths.slackConnection}`,
   threadPreview: `${apiPrefix}${apiPaths.threadPreview}`,
   slackConnectionCheck: `${apiPrefix}${apiPaths.slackConnectionCheck}`,
+  slackBot: `${apiPrefix}${apiPaths.slackBot}`,
   discordConnection: `${apiPrefix}${apiPaths.discordConnection}`,
   discordConnectionCheck: `${apiPrefix}${apiPaths.discordConnectionCheck}`,
   preferences: `${apiPrefix}${apiPaths.preferences}`,
@@ -176,6 +181,7 @@ export const apiRoutes = {
   updatesCheck: `${apiPrefix}${apiPaths.updatesCheck}`,
   updatesInstall: `${apiPrefix}${apiPaths.updatesInstall}`,
   storage: `${apiPrefix}${apiPaths.storage}`,
+  standup: `${apiPrefix}${apiPaths.standup}`,
 } as const satisfies { [K in keyof ApiPaths]: `${typeof apiPrefix}${ApiPaths[K]}` };
 
 export type ApiRoute = (typeof apiRoutes)[keyof typeof apiRoutes];

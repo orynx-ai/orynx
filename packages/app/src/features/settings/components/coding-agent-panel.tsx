@@ -49,6 +49,7 @@ import { ClaudeCard } from './claude-card.tsx';
 import { CodexCard } from './codex-card.tsx';
 import { EditorChoice } from './editor-choice.tsx';
 import { JiraChanges } from './jira-changes.tsx';
+import { ReadAhead } from './read-ahead.tsx';
 import { OtherAgents } from './other-agents.tsx';
 import { SaveError } from './save-error.tsx';
 import { SectionHeading } from './section-heading.tsx';
@@ -95,6 +96,7 @@ export function CodingAgentPanel() {
         <CodexCard />
         <OtherAgents />
         <JiraChanges />
+        <ReadAhead />
       </section>
       <section aria-labelledby={headingId} className="flex flex-col gap-3.5">
         <SectionHeading

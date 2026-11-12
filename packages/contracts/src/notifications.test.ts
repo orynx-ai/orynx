@@ -159,3 +159,26 @@ describe('notification settings (spec 029)', () => {
     expect(NotificationSettingsChangeSchema.safeParse({ colour: 'red' }).success).toBe(false);
   });
 });
+
+describe('answering from chat (spec 057)', () => {
+  it('AC-11: is off by default, and sends to every connected service once turned on', () => {
+    expect(defaultNotificationSettings.chatAnswers).toEqual({ on: false, to: 'both' });
+  });
+
+  it('AC-12: one change turns it on and picks where, and nowhere else is taken', () => {
+    const change = NotificationSettingsChangeSchema.parse({ chatAnswers: { on: true, to: 'discord' } });
+    expect(withNotificationChange(defaultNotificationSettings, change).chatAnswers).toEqual({
+      on: true,
+      to: 'discord',
+    });
+    expect(NotificationSettingsChangeSchema.safeParse({ chatAnswers: { on: true, to: 'email' } }).success).toBe(false);
+  });
+});
+
+describe('close to your Claude limit (spec 057, E)', () => {
+  it('AC-45, AC-48: says which limit, how much is used and when it resets, under the Session hit a limit row', () => {
+    const what = { kind: 'limit_near', window: 'seven_day', usedPercent: 91, resetsAt: '2026-11-12T09:00:00.000Z' };
+    expect(NotificationWhatSchema.parse(what)).toEqual(what);
+    expect(notificationEventOf('limit_near')).toBe('session_limit');
+  });
+});

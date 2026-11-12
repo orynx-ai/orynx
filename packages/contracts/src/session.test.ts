@@ -10,6 +10,7 @@ import {
   ApiErrorSchema,
   sessionTitleLimit,
   SessionActivitySchema,
+  SessionSummarySchema,
   SessionApprovalSchema,
   SessionIdSchema,
   SessionListQuerySchema,
@@ -391,6 +392,55 @@ describe("Claude's questions (spec 051)", () => {
     expect(SessionActivitySchema.safeParse({ id: 'a4', state: 'done', kind: 'answered', answers: [] }).success).toBe(
       false,
     );
+  });
+});
+
+describe("a session's cost in the lists (spec 057, E)", () => {
+  it('AC-42, AC-50: a summary carries what it cost and when it started, and one from before says neither', () => {
+    const summary = { ...makeSessionSummary(), costUsd: 1.42, startedAt: '2026-11-09T09:00:00.000Z' };
+    expect(SessionSummarySchema.parse(summary)).toMatchObject({ costUsd: 1.42, startedAt: '2026-11-09T09:00:00.000Z' });
+    const { costUsd: _, startedAt: __, ...before } = summary;
+    expect(SessionSummarySchema.parse(before)).toMatchObject({ costUsd: null, startedAt: null });
+  });
+});
+
+describe('a review read ahead (spec 057, D)', () => {
+  it('AC-35: a session says Orynx started it without a press, and one saved before says it didn’t', () => {
+    expect(SessionSchema.parse({ ...makeSession(), readAhead: true }).readAhead).toBe(true);
+    const { readAhead: _, ...before } = makeSession();
+    expect(SessionSchema.parse(before).readAhead).toBe(false);
+  });
+});
+
+describe('a question answered from outside Orynx (spec 057)', () => {
+  it("AC-2, AC-13: the answered step says where you answered, and the waiting step where it couldn't be sent", () => {
+    const activities: SessionActivity[] = [
+      {
+        id: 'a1',
+        state: 'running',
+        kind: 'waiting',
+        approvalId: 'approval-q1',
+        about: 'question',
+        text: 'Which date library should we use?',
+        unsent: ['discord'],
+      },
+      {
+        id: 'a2',
+        state: 'done',
+        kind: 'answered',
+        answers: [{ header: 'Library', answer: 'date-fns' }],
+        from: 'discord',
+      },
+    ];
+    expect(SessionSchema.parse(makeSession({ activities })).activities).toEqual(activities);
+    const elsewhere = {
+      id: 'a3',
+      state: 'done',
+      kind: 'answered',
+      answers: [{ header: 'A', answer: 'B' }],
+      from: 'email',
+    };
+    expect(SessionActivitySchema.safeParse(elsewhere).success).toBe(false);
   });
 });
 

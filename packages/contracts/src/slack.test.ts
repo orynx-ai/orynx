@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { apiRoutes, slackScopes, SlackConnectionRequestSchema, SlackConnectionSchema } from './index.ts';
+import {
+  apiRoutes,
+  slackScopes,
+  SlackBotRequestSchema,
+  SlackConnectionRequestSchema,
+  SlackConnectionSchema,
+} from './index.ts';
 import { makeSlackConnection } from './testing.ts';
 
 describe('SlackConnectionRequestSchema (spec 016)', () => {
@@ -53,5 +59,20 @@ describe('Slack routes', () => {
   it('serves the connection beside Jira and GitHub', () => {
     expect(apiRoutes.slackConnection).toBe('/api/slack/connection');
     expect(apiRoutes.slackConnectionCheck).toBe('/api/slack/connection/check');
+  });
+});
+
+describe("Slack's bot (spec 057)", () => {
+  it('AC-14: says whether a bot token is saved, and an answer from before spec 057 has none', () => {
+    expect(makeSlackConnection({ bot: true }).bot).toBe(true);
+    expect(SlackConnectionSchema.parse({ saved: null, envToken: false }).bot).toBe(false);
+  });
+
+  it('AC-14: takes a pasted bot token, trimmed, at its own path', () => {
+    expect(SlackBotRequestSchema.parse({ token: ' fake-slack-bot-token\n' })).toEqual({
+      token: 'fake-slack-bot-token',
+    });
+    expect(SlackBotRequestSchema.safeParse({ token: '' }).success).toBe(false);
+    expect(apiRoutes.slackBot).toBe('/api/slack/connection/bot');
   });
 });

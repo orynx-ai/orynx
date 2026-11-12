@@ -11,7 +11,7 @@ import {
   Ticket01Icon,
   Tick02Icon,
 } from '@hugeicons/core-free-icons';
-import type { Notification, NotificationKind } from '@devhub/contracts';
+import { pausedNow, type Notification, type NotificationKind } from '@devhub/contracts';
 import {
   Button,
   Icon,
@@ -40,7 +40,7 @@ import {
   useNotificationSettings,
   useNotifications,
 } from '../queries.ts';
-import { pausedNow, pauseUntil } from '../quiet.ts';
+import { pauseUntil } from '../quiet.ts';
 import { NotificationActions } from './notification-actions.tsx';
 import {
   aboutOpenSession,
@@ -57,6 +57,7 @@ export const notificationLooks: Record<NotificationKind, { icon: IconSvgElement;
   session_stopped: { icon: PauseIcon, tone: 'neutral' },
   session_failed: { icon: Alert02Icon, tone: 'danger' },
   session_limit: { icon: Alert02Icon, tone: 'danger' },
+  limit_near: { icon: Alert02Icon, tone: 'warning' },
   review_requested: { icon: GitPullRequestIcon, tone: 'neutral' },
   checks_failed: { icon: Alert02Icon, tone: 'danger' },
   jira_assigned: { icon: Ticket01Icon, tone: 'neutral' },
@@ -98,6 +99,7 @@ export function NotificationCentre({ side = 'right', tooltipSide }: Notification
     if (place.kind === 'session') void navigate({ to: '/sessions/$sessionId', params: { sessionId: place.sessionId } });
     else if (place.kind === 'about') void navigate({ to: '/settings/$tab', params: { tab: 'about' } });
     else if (place.kind === 'settings') void navigate({ to: '/settings/$tab', params: { tab: place.tab } });
+    else if (place.kind === 'sessions') void navigate({ to: '/sessions' });
     else platform.openExternal(place.url);
   }
 

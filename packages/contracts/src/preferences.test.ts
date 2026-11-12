@@ -65,6 +65,7 @@ describe('PreferencesSchema', () => {
       jiraChanges: false,
       deleteSessionsAfterDays: null,
       replyWaitMinutes: 120,
+      readReviewsAhead: false,
     });
     expect(PreferencesSchema.parse(defaultPreferences)).toEqual(defaultPreferences);
   });
@@ -76,6 +77,11 @@ describe('PreferencesSchema', () => {
       PreferencesSchema.parse({ ...defaultPreferences, deleteSessionsAfterDays: 30 }).deleteSessionsAfterDays,
     ).toBe(30);
     expect(PreferencesSchema.safeParse({ ...defaultPreferences, deleteSessionsAfterDays: 10 }).success).toBe(false);
+  });
+
+  it('057 AC-34: Read review requests ahead starts off, and a change may turn it on alone', () => {
+    expect(defaultPreferences.readReviewsAhead).toBe(false);
+    expect(PreferencesChangeSchema.parse({ readReviewsAhead: true })).toEqual({ readReviewsAhead: true });
   });
 
   it('044 Q8: a change may turn Claude changes Jira on or off alone', () => {

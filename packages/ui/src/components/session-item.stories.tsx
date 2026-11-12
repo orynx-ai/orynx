@@ -32,6 +32,10 @@ export const PrClosed: Story = {
 };
 export const Stopped: Story = { args: { title: 'Try a faster search index', source: 'PROJ-1377', state: 'stopped' } };
 export const Current: Story = { args: { 'aria-current': 'page' } };
+/** The Sessions page's row with its cost (spec 057, E). */
+export const WithCost: Story = {
+  args: { title: 'Bulk archive for events', source: 'PROJ-1401', state: 'pr_open', detail: '≈ $1.42' },
+};
 export const NoSource: Story = { args: { title: 'Tidy the README', source: undefined, state: 'working' } };
 export const LongTitle: Story = {
   args: { title: 'Show read receipts for every announcement in the analytics dashboard', state: 'working' },

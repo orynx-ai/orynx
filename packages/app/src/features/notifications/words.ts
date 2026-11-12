@@ -5,6 +5,7 @@ import { sizeText } from '../../words/size.ts';
 import { waitText } from '../../words/tool-line.ts';
 import { sourceLabel } from '../sessions/source-label.ts';
 import { forAgent } from '../../words/agent-words.ts';
+import { limitLine } from '../../words/claude-limit.ts';
 
 /** The words the panel, a pop-up and a desktop notification use (spec 029, Q6). */
 export interface NotificationWords {
@@ -79,6 +80,11 @@ export function notificationWords(what: NotificationWhat): NotificationWords {
     }
     case 'update_available':
       return { title: `Orynx ${what.version} is out`, detail: 'Settings › About', desktop: 'Settings › About' };
+    case 'limit_near': {
+      // The notification is made as the limit is heard, so its time words read from then.
+      const line = limitLine(what, new Date());
+      return { title: 'Close to your Claude limit', detail: line, desktop: line };
+    }
     case 'sessions_cleaned': {
       const freed = `Freed ${sizeText(what.bytes)}`;
       const sessions = what.count === 1 ? '1 old session' : `${String(what.count)} old sessions`;
@@ -97,7 +103,8 @@ export type NotificationPlace =
   | { kind: 'session'; sessionId: string }
   | { kind: 'external'; url: string }
   | { kind: 'about' }
-  | { kind: 'settings'; tab: 'coding-agent' };
+  | { kind: 'settings'; tab: 'coding-agent' }
+  | { kind: 'sessions' };
 
 /** Whether it's about the session open at `pathname`, which already shows it, its approval callout included. */
 export function aboutOpenSession(what: NotificationWhat, pathname: string): boolean {
@@ -110,6 +117,8 @@ export function aboutOpenSession(what: NotificationWhat, pathname: string): bool
  */
 export function notificationPlace(what: NotificationWhat): NotificationPlace {
   if (what.kind === 'sessions_cleaned') return { kind: 'settings', tab: 'coding-agent' };
+  // Close to the limit opens the Sessions page, where the spend is (spec 057, E).
+  if (what.kind === 'limit_near') return { kind: 'sessions' };
   if ('session' in what) return { kind: 'session', sessionId: what.session.id };
   if (what.kind === 'update_available') return { kind: 'about' };
   if (what.kind === 'reply_waiting') return { kind: 'external', url: what.url };

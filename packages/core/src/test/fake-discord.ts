@@ -146,6 +146,71 @@ export function discordPosts(posted: { channel: string; body: unknown }[] = [], 
   });
 }
 
+/** Opening the bot's DM with a person (spec 057, A): Discord answers the DM channel; `opened` collects each recipient. */
+export function discordDm(channel: string, opened: string[] = []) {
+  return http.post(`${discordApi}/users/@me/channels`, async ({ request }) => {
+    if (!sentToken(request, [discordToken])) return unauthorized();
+    const body = (await request.json()) as { recipient_id?: unknown };
+    opened.push(String(body.recipient_id));
+    return HttpResponse.json({ id: channel, type: 1 });
+  });
+}
+
+/** A person who doesn't take DMs from the bot: Discord refuses each message with its code 50007. */
+export function discordDmClosed() {
+  return http.post(`${discordApi}/channels/:channel/messages`, () =>
+    HttpResponse.json({ message: 'Cannot send messages to this user', code: 50007 }, { status: 403 }),
+  );
+}
+
+/**
+ * The bot's DM with you as one conversation (spec 057, A): it opens, keeps in `messages` what the bot sends and what
+ * `reply` adds as you, with ids in order, and reads them back after an id, newest first, as Discord does.
+ */
+export function discordDmConversation(dm = '1100000000000000300', messages: FakeDiscordMessage[] = []) {
+  // Ids go on from the newest kept, so an e2e spec's replies, kept between the hub's resets, stay in order.
+  function add(author: string, content: string, replyTo?: string): string {
+    const newest = messages.reduce(
+      (most, { id }) => (BigInt(id) > most ? BigInt(id) : most),
+      BigInt('1434480000000000000'),
+    );
+    const id = String(newest + BigInt(1));
+    const bot = author === botId;
+    messages.push({
+      id,
+      channel_id: dm,
+      author: { id: author, username: bot ? 'Orynx' : 'neha', bot },
+      content,
+      timestamp: '2026-11-10T10:00:00.000Z',
+      ...(replyTo === undefined ? {} : { message_reference: { message_id: replyTo } }),
+    });
+    return id;
+  }
+  const handlers = [
+    discordDm(dm),
+    http.post(`${discordApi}/channels/${dm}/messages`, async ({ request }) => {
+      if (!sentToken(request, [discordToken])) return unauthorized();
+      const body = (await request.json()) as { content: string; message_reference?: { message_id: string } };
+      return HttpResponse.json({ id: add(botId, body.content, body.message_reference?.message_id), channel_id: dm });
+    }),
+    http.get(`${discordApi}/channels/${dm}/messages`, ({ request }) => {
+      const after = BigInt(new URL(request.url).searchParams.get('after') ?? '0');
+      return HttpResponse.json(messages.filter((message) => BigInt(message.id) > after).reverse());
+    }),
+  ];
+  return {
+    dm,
+    handlers,
+    messages,
+    /** What the bot has sent, in order. */
+    sent: () => messages.filter((message) => message.author.id === botId),
+    /** A message from you, as a Reply to `replyTo` when given; its id. */
+    reply: (content: string, replyTo?: string) => add(discordUserId, content, replyTo),
+    /** A message from someone else. */
+    from: (author: string, content: string, replyTo?: string) => add(author, content, replyTo),
+  };
+}
+
 /**
  * MSW standing in for Discord, an outside service, for the test file that calls this. It answers for the bot and
  * fails any other request, so no test can reach the real internet.

@@ -71,4 +71,18 @@ describe('notification endpoints (spec 029)', () => {
     expect(body).toEqual({ volume: 35 });
     expect(notificationSettingsQueryOptions(api).queryKey).toEqual(queryKeys.notificationSettings);
   });
+
+  it('057 AC-12: sends Answer from chat on and where, and reads it back', async () => {
+    let body: unknown;
+    const on = { ...defaultNotificationSettings, chatAnswers: { on: true, to: 'discord' as const } };
+    server.use(
+      http.patch(`${baseURL}${apiRoutes.notificationSettings}`, async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json(on);
+      }),
+    );
+
+    expect((await api.changeNotificationSettings({ chatAnswers: on.chatAnswers })).chatAnswers).toEqual(on.chatAnswers);
+    expect(body).toEqual({ chatAnswers: { on: true, to: 'discord' } });
+  });
 });

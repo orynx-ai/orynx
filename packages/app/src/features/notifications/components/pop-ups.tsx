@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useRouterState } from '@tanstack/react-router';
-import { defaultNotificationSettings, type Notification } from '@devhub/contracts';
+import { statusQueryOptions } from '@devhub/api-client';
+import { defaultNotificationSettings, delivery, type Notification } from '@devhub/contracts';
 import { Notification01Icon } from '@hugeicons/core-free-icons';
 import { Toast, ToastRegion } from '@devhub/ui';
+import { useApi } from '../../../api.tsx';
 import { usePlatform } from '../../../platform.tsx';
 import { announce, becomeSpeaker, watchLooking } from '../alerts.ts';
 import { useMarkNotificationsRead, useNotificationSettings, useNotifications } from '../queries.ts';
-import { delivery } from '../quiet.ts';
 import { useTestPopUpStore } from '../store.ts';
 import { aboutOpenSession, notificationPlace, notificationWords, testWords } from '../words.ts';
 import { isWaiting, notificationLooks } from './notification-centre.tsx';
@@ -26,6 +28,8 @@ const most = 3;
 export function PopUps() {
   const notifications = useNotifications();
   const settings = useNotificationSettings();
+  const api = useApi();
+  const status = useQuery(statusQueryOptions(api));
   const navigate = useNavigate();
   const platform = usePlatform();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
@@ -62,6 +66,8 @@ export function PopUps() {
         void navigate({ to: '/settings/$tab', params: { tab: 'about' } });
       } else if (place.kind === 'settings') {
         void navigate({ to: '/settings/$tab', params: { tab: place.tab } });
+      } else if (place.kind === 'sessions') {
+        void navigate({ to: '/sessions' });
       } else platform.openExternal(place.url);
     },
     [close, markRead, navigate, platform],
@@ -92,8 +98,10 @@ export function PopUps() {
     // Nor does it wait unread in the bell: the session you're on has told you (the user's call, 20 Oct 2026).
     const here = arrived.filter(({ read, what }) => !read && aboutOpenSession(what, pathname));
     if (here.length > 0) markRead({ ids: here.map((notification) => notification.id) });
-    if (speaking.current && arrived.length > 0) void announce(arrived, chosen, now, open);
-  }, [list, settings.data, open, pathname, markRead]);
+    // In the desktop app on macOS the hub shows a question itself, with a reply box (spec 057, AC-15).
+    const nativeQuestions = status.data?.desktopReplies === true && chosen.chatAnswers.on;
+    if (speaking.current && arrived.length > 0) void announce(arrived, chosen, now, open, { nativeQuestions });
+  }, [list, settings.data, status.data, open, pathname, markRead]);
 
   const byId = new Map((list ?? []).map((notification) => [notification.id, notification]));
   // An approval answered anywhere has nothing left to ask, so its pop-up goes (AC-23).

@@ -16,6 +16,7 @@ import {
   sessionsHubPort,
   syncActivityHubPort,
   chatHubPort,
+  answersHubPort,
   terminalHubPort,
   orynxTicketsHubPort,
 } from './e2e/fake-tools/config.ts';
@@ -34,6 +35,7 @@ const terminalHome = setUpHome(mkdtempSync(join(tmpdir(), 'devhub-e2e-terminal-'
 const orynxTicketsHome = setUpHome(mkdtempSync(join(tmpdir(), 'devhub-e2e-orynx-tickets-')));
 const pullRequestsHome = setUpHome(mkdtempSync(join(tmpdir(), 'devhub-e2e-pull-requests-')));
 const codexHome = setUpHome(mkdtempSync(join(tmpdir(), 'devhub-e2e-codex-')));
+const answersHome = setUpHome(mkdtempSync(join(tmpdir(), 'devhub-e2e-answers-')));
 // The pull requests hub's git commits with a name of its own, and never reads your ~/.gitconfig: your
 // name, your signing (which could ask for a passphrase) or your aliases (spec 014).
 const pullRequestsGitHome = mkdtempSync(join(tmpdir(), 'devhub-e2e-pull-requests-git-'));
@@ -160,6 +162,8 @@ export default defineConfig({
     hub(syncActivityHubPort, syncActivityHome),
     // Slack and Discord (spec 016): connecting them never adds tabs to Home's inbox spec.
     hub(chatHubPort, chatHome),
+    // Spec 057: questions answered from Discord, the standup and the spend, away from Slack and Discord's own spec.
+    hub(answersHubPort, answersHome),
     // The session Terminal (spec 036): your commands run in its sessions' worktrees.
     hub(terminalHubPort, terminalHome, {
       // env-policy-ignore-next-line: the shell your Terminal runs; /bin/sh keeps your own shell's startup files out

@@ -3,9 +3,13 @@ import { describe, expect, it } from 'vitest';
 import { slackScopes } from '@devhub/contracts';
 import {
   acceptingAuthTest,
+  acceptingBotToken,
   knownUsers,
   slackApi,
   slackChannels,
+  slackBotToken,
+  slackBotUserId,
+  slackDmOpen,
   slackDms,
   slackMentions,
   slackPosts,
@@ -306,5 +310,67 @@ describe('a reply in a Slack thread (spec 016, E)', () => {
         'hi',
       ),
     ).toEqual({ ok: false, reason: 'is_archived' });
+  });
+});
+
+describe("Slack's bot, which DMs you Claude's questions (spec 057, A)", () => {
+  const dm = 'D07BOTDM01';
+
+  it('AC-14: a bot token with its scopes names its workspace; your own token, or one missing a scope, is refused', async () => {
+    slack.use(acceptingBotToken());
+    expect(await client.checkBot(slackBotToken)).toEqual({ ok: true, url: 'https://acme.slack.com/' });
+    expect(await client.checkBot(slackToken)).toEqual({ ok: false, problem: { kind: 'rejected' } });
+
+    slack.use(acceptingBotToken({ scopes: ['chat:write'] }));
+    expect(await client.checkBot(slackBotToken)).toEqual({
+      ok: false,
+      problem: { kind: 'missing_scopes', missing: ['im:write', 'im:history'] },
+    });
+  });
+
+  it('AC-1: opens the DM with you and sends as the bot, with what Slack would read as a mention escaped', async () => {
+    const opened: string[] = [];
+    const posted: { channel: string; thread_ts: string; text: string }[] = [];
+    slack.use(slackDmOpen(dm, opened), slackPosts(posted));
+
+    expect(await client.openDm(slackBotToken, slackUserId)).toEqual({ ok: true, channel: dm });
+    expect(await client.sendDm(slackBotToken, dm, 'Ask <@U0TEAM> & <!channel>?')).toEqual({
+      ok: true,
+      ts: '1793620000.000100',
+    });
+    expect(await client.sendDm(slackBotToken, dm, 'Sent to Claude.', '1793610000.000100')).toMatchObject({ ok: true });
+    expect(opened).toEqual([slackUserId]);
+    expect(posted).toEqual([
+      { channel: dm, thread_ts: '', text: 'Ask &lt;@U0TEAM&gt; &amp; &lt;!channel&gt;?' },
+      { channel: dm, thread_ts: '1793610000.000100', text: 'Sent to Claude.' },
+    ]);
+  });
+
+  it("AC-2: reads the thread's replies after one, oldest first, with who wrote each, as plain text", async () => {
+    slack.use(
+      slackThreads({
+        [`${dm}/1793610000.000100`]: [
+          { ts: '1793610000.000100', user: slackBotUserId, text: 'Claude has a question' },
+          { ts: '1793610100.000100', user: slackUserId, text: '2', thread_ts: '1793610000.000100' },
+          { ts: '1793610200.000100', user: slackUserId, text: 'use a &lt;Map&gt;', thread_ts: '1793610000.000100' },
+        ],
+      }),
+    );
+
+    expect(await client.repliesAfter(slackBotToken, dm, '1793610000.000100', '1793610100.000100')).toEqual({
+      ok: true,
+      messages: [{ ts: '1793610200.000100', author: slackUserId, text: 'use a <Map>' }],
+    });
+    expect(await client.repliesAfter(slackBotToken, dm, '1793610000.000100', '1793610000.000100')).toMatchObject({
+      messages: [{ text: '2' }, { text: 'use a <Map>' }],
+    });
+  });
+
+  it('AC-13: a refused send comes back as its problem', async () => {
+    slack.use(slackPosts([], 'channel_not_found'));
+    expect(await client.sendDm(slackBotToken, dm, 'hi')).toEqual({
+      ok: false,
+      problem: { kind: 'slack_error', error: 'channel_not_found' },
+    });
   });
 });

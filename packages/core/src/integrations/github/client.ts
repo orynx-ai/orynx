@@ -29,6 +29,10 @@ export type GitHubPull = z.infer<typeof PullSchema>;
 export type GitHubInbox =
   { ok: true; login: string; reviews: GitHubPull[]; mine: GitHubPull[] } | { ok: false; problem: GitHubProblem };
 
+/** Your pull requests merged on a day (spec 057, C), each by its repository, number and title. */
+export type GitHubMerged =
+  { ok: true; pulls: { repository: string; number: number; title: string }[] } | { ok: false; problem: GitHubProblem };
+
 /** The pull request a composer chip names (spec 015). */
 export interface GitHubPullRef {
   owner: string;
@@ -97,12 +101,18 @@ export type GitHubDefaultBranch = { ok: true; branch: string } | { ok: false; pr
 export type GitHubPullState =
   { ok: true; state: 'open' | 'closed' | 'merged'; head: string } | { ok: false; problem: GitHubPullProblem };
 
-/** An unresolved review thread with GitHub's id for it, and every comment in it, oldest first (spec 049). */
+/**
+ * An unresolved review thread with GitHub's id for it, and every comment in it, oldest first (spec 049); its side, and
+ * whether GitHub calls it outdated, with its link and each comment's time (spec 057).
+ */
 export interface GitHubReviewThread {
   id: string;
   path: string;
   line: number | null;
-  comments: { author: string; body: string }[];
+  side: 'new' | 'old';
+  outdated: boolean;
+  url: string;
+  comments: { author: string; body: string; at: string }[];
 }
 
 export type GitHubReviewThreads =
@@ -143,6 +153,8 @@ export interface GitHubClient {
    * 100 of each.
    */
   inbox(token: string): Promise<GitHubInbox>;
+  /** Your pull requests merged on `day`, a calendar day, for the standup (spec 057, C): at most 50. */
+  mergedOn(token: string, day: string): Promise<GitHubMerged>;
   /**
    * One GraphQL query for a pull request a composer chip names (spec 015): its title, description, branches,
    * the head commit's failed checks, its unresolved review threads and its changed files.
@@ -338,7 +350,10 @@ const reviewThreadsQuery = `
     repository(owner: $owner, name: $name) {
       pullRequest(number: $number) {
         reviewThreads(first: 50) {
-          nodes { id isResolved path line comments(first: 20) { nodes { author { login } body } } }
+          nodes {
+            id isResolved isOutdated path line diffSide
+            comments(first: 20) { nodes { author { login } body createdAt url } }
+          }
         }
       }
     }
@@ -375,6 +390,23 @@ const ThreadSchema = z.object({
   line: z.int().nullish(),
   comments: z.object({
     nodes: z.array(z.object({ author: z.object({ login: z.string() }).nullish(), body: z.string() })),
+  }),
+});
+/** A thread as Reply to reviewers (spec 049) and the Review comments tab (spec 057) read it. */
+const ReviewThreadNodeSchema = ThreadSchema.extend({
+  isOutdated: z.boolean().catch(false),
+  diffSide: z.enum(['LEFT', 'RIGHT']).catch('RIGHT'),
+  comments: z.object({
+    nodes: z
+      .array(
+        z.object({
+          author: z.object({ login: z.string() }).nullish(),
+          body: z.string(),
+          createdAt: z.iso.datetime(),
+          url: z.string(),
+        }),
+      )
+      .min(1),
   }),
 });
 const FileCountSchema = z.object({ path: z.string(), additions: z.int(), deletions: z.int() });
@@ -440,6 +472,25 @@ const searchFilters = 'is:pr is:open draft:false archived:false';
  * the same account share. Raise a limit only with that sum in mind.
  */
 const threadsPerPull = 20;
+
+// The standup (spec 057, C): your pull requests merged on one day.
+const mergedQuery = `
+  query DevHubMergedPulls($search: String!) {
+    search(type: ISSUE, query: $search, first: 50) {
+      nodes { ... on PullRequest { number title repository { nameWithOwner } } }
+    }
+  }
+`;
+const MergedDataSchema = z.object({
+  search: z.object({
+    nodes: z.array(
+      z
+        .object({ number: z.int().positive(), title: z.string(), repository: z.object({ nameWithOwner: z.string() }) })
+        .nullable()
+        .catch(null),
+    ),
+  }),
+});
 
 const inboxQuery = `
   query DevHubInbox($reviews: String!, $mine: String!) {
@@ -601,6 +652,23 @@ export function createGitHubClient({
       }
     },
 
+    async mergedOn(token, day) {
+      const signal = AbortSignal.timeout(timeoutMs);
+      try {
+        const octokit = await octokitFor(token, signal);
+        const data = MergedDataSchema.safeParse(
+          await octokit.graphql(mergedQuery, { search: `is:pr author:@me is:merged merged:${day}` }),
+        );
+        if (!data.success) return notGitHub;
+        const pulls = data.data.search.nodes.flatMap((node) =>
+          node === null ? [] : [{ repository: node.repository.nameWithOwner, number: node.number, title: node.title }],
+        );
+        return { ok: true, pulls };
+      } catch (error) {
+        return failed(error, signal);
+      }
+    },
+
     async inbox(token) {
       const signal = AbortSignal.timeout(timeoutMs);
       try {
@@ -752,13 +820,24 @@ export function createGitHubClient({
         const pull = data.data.repository?.pullRequest;
         if (pull === null || pull === undefined) return { ok: false, problem: { kind: 'not_found' } };
         const threads = pull.reviewThreads.nodes.flatMap((node): GitHubReviewThread[] => {
-          const thread = ThreadSchema.safeParse(node);
+          const thread = ReviewThreadNodeSchema.safeParse(node);
           if (!thread.success || thread.data.isResolved || thread.data.id === undefined) return [];
           const comments = thread.data.comments.nodes.map((comment) => ({
             author: comment.author?.login ?? 'Someone',
             body: comment.body,
+            at: new Date(comment.createdAt).toISOString(),
           }));
-          return [{ id: thread.data.id, path: thread.data.path, line: thread.data.line ?? null, comments }];
+          return [
+            {
+              id: thread.data.id,
+              path: thread.data.path,
+              line: thread.data.line ?? null,
+              side: thread.data.diffSide === 'LEFT' ? 'old' : 'new',
+              outdated: thread.data.isOutdated,
+              url: thread.data.comments.nodes[0]?.url ?? '',
+              comments,
+            },
+          ];
         });
         return { ok: true, threads };
       } catch (error) {

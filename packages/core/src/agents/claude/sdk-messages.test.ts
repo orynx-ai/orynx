@@ -352,6 +352,29 @@ describe('createMessageReader', () => {
     expect(JSON.stringify(said)).not.toContain('sk-ant-secret');
   });
 
+  it('057 AC-45, AC-47: a rate-limit event says how close you are to a plan limit, as a whole percent', () => {
+    const read = createMessageReader(worktree);
+    const resets = Date.parse('2026-11-10T15:40:00.000Z') / 1000;
+    const event = (rate_limit_info: object) => as({ type: 'rate_limit_event', rate_limit_info, ...session });
+
+    expect(
+      read(event({ status: 'allowed_warning', rateLimitType: 'five_hour', utilization: 0.823, resetsAt: resets })),
+    ).toEqual([
+      {
+        type: 'limit',
+        status: 'allowed_warning',
+        limit: { window: 'five_hour', usedPercent: 82, resetsAt: '2026-11-10T15:40:00.000Z' },
+      },
+    ]);
+    expect(read(event({ status: 'allowed', rateLimitType: 'five_hour', utilization: 0.1 }))).toEqual([
+      { type: 'limit', status: 'allowed', limit: { window: 'five_hour', usedPercent: 10, resetsAt: null } },
+    ]);
+    // Extra usage beyond the plan isn't one of its windows.
+    expect(read(event({ status: 'allowed_warning', rateLimitType: 'overage', utilization: 0.9 }))).toEqual([
+      { type: 'limit', status: 'allowed_warning', limit: null },
+    ]);
+  });
+
   it('ignores the messages it has no use for', () => {
     const read = createMessageReader(worktree);
     for (const message of [

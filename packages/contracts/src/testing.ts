@@ -13,6 +13,7 @@ import {
 import { ClaudeSignedInSchema, type ClaudeSignedIn } from './claude.ts';
 import { GitHubConnectionSchema, type GitHubConnection } from './github.ts';
 import { SlackConnectionSchema, type SlackConnection } from './slack.ts';
+import { StandupSchema, type Standup } from './standup.ts';
 import { DiscordConnectionSchema, type DiscordConnection } from './discord.ts';
 import { InboxItemSchema, InboxSchema, type Inbox, type InboxItem } from './inbox.ts';
 import { JiraConnectionSchema, type JiraConnection } from './jira.ts';
@@ -33,11 +34,13 @@ import {
   DraftedPullRequestSchema,
   DraftedPushSchema,
   ReplyDraftSchema,
+  PullThreadSchema,
   ReviewThreadSchema,
   type DraftedPullRequest,
   type DraftedPush,
   type PullRequestDraft,
   type ReplyDraft,
+  type PullThread,
   type ReviewThread,
 } from './pull-requests.ts';
 import { ProfileSchema, type Profile } from './profile.ts';
@@ -274,6 +277,21 @@ export function makeReviewThread(overrides: Partial<ReviewThread> = {}): ReviewT
   });
 }
 
+/** Maria's open thread on line 42 of src/ContentList.tsx in #2841, where the diff can show it (spec 057, B). */
+export function makePullThread(overrides: Partial<PullThread> = {}): PullThread {
+  return PullThreadSchema.parse({
+    id: 'PRRT_kwDOAbc1',
+    path: 'src/ContentList.tsx',
+    line: 42,
+    side: 'new',
+    outdated: false,
+    url: 'https://github.com/acme/web-app/pull/2841#discussion_r1001',
+    comments: [{ author: 'maria', body: 'Use the existing `useSelection` hook here.', at: '2026-11-09T15:00:00.000Z' }],
+    placeable: true,
+    ...overrides,
+  });
+}
+
 /** Reply to reviewers on #2841: one thread Claude replied to, and one it left (spec 049). */
 export function makeReplyDraft(overrides: Partial<Omit<ReplyDraft, 'result'>> = {}): ReplyDraft {
   return ReplyDraftSchema.parse({
@@ -463,6 +481,7 @@ export interface PreferencesOverrides {
   jiraChanges?: boolean;
   deleteSessionsAfterDays?: Preferences['deleteSessionsAfterDays'];
   replyWaitMinutes?: Preferences['replyWaitMinutes'];
+  readReviewsAhead?: boolean;
 }
 
 /** Preferences as a fresh DevHub reports them, unless the override says otherwise. */
@@ -479,6 +498,7 @@ export function makePreferences(overrides: PreferencesOverrides = {}): Preferenc
     jiraChanges: overrides.jiraChanges ?? defaultPreferences.jiraChanges,
     deleteSessionsAfterDays: overrides.deleteSessionsAfterDays ?? defaultPreferences.deleteSessionsAfterDays,
     replyWaitMinutes: overrides.replyWaitMinutes ?? defaultPreferences.replyWaitMinutes,
+    readReviewsAhead: overrides.readReviewsAhead ?? defaultPreferences.readReviewsAhead,
   });
 }
 
@@ -907,6 +927,26 @@ export function makeNewJiraTicket(overrides: Partial<NewJiraTicket> = {}): NewJi
     typeId: '10001',
     priorityId: '3',
     dueDate: null,
+    ...overrides,
+  });
+}
+
+/** Friday's standup, drafted on Monday 9 Nov 2026 (spec 057, C). */
+export function makeStandup(overrides: Partial<Standup> = {}): Standup {
+  return StandupSchema.parse({
+    day: '2026-11-06',
+    text: [
+      'Yesterday',
+      '• Merged #2974 Add bulk archive (PROJ-1423)',
+      '• Moved PROJ-1419 to In Review',
+      '',
+      'Today',
+      '• PROJ-1431 Retry failed exports (In Progress)',
+      '',
+      'Blockers',
+      '• None',
+    ].join('\n'),
+    missing: [],
     ...overrides,
   });
 }

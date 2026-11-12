@@ -14,6 +14,7 @@ import type {
   AgentChoice,
   AgentId,
   ApprovalDecision,
+  ClaudeLimit,
   ComposerChip,
   CreatePullRequestAnswer,
   CreatePullRequestRequest,
@@ -25,6 +26,7 @@ import type {
   PushRequest,
   QuestionAnswer,
   ReplyAnswer,
+  PullThreadsAnswer,
   ReplyDraftAnswer,
   ReplyRequest,
   Repository,
@@ -56,6 +58,8 @@ import {
   type AgentAsk,
   type AgentBrief,
   type AgentEvent,
+  type AgentWork,
+  type AnswerSource,
   type QuestionAnswers,
 } from '../agents/agent-adapter.ts';
 import type { EventBus } from '../events/event-bus.ts';
@@ -151,6 +155,8 @@ export type SessionReport =
       what: 'answered';
       session: string;
       ticket: string;
+      /** The call's id, so a question sent to chat can say it ended (spec 057). */
+      approval: string;
       about: AgentAsk['kind'];
       answer: ApprovalAnswer | null;
       by: ApprovalEnd;
@@ -178,7 +184,8 @@ export interface SessionService {
   /** Runs a server Claude started again in its tab (spec 042); one started any other way can't be. */
   restartPort(id: string, port: number): Promise<PortActionAnswer['result'] | 'not_found'>;
   /** Ship's start on a ticket, or the composer's with your message and its chips (spec 015). */
-  start(request: StartSessionRequest): Promise<StartSessionAnswer>;
+  /** `readAhead`: Orynx starts a review itself, as Read review requests ahead does (spec 057, D). */
+  start(request: StartSessionRequest, options?: { readAhead?: boolean }): Promise<StartSessionAnswer>;
   /** The session as the Session screen shows it; null when there's none with this id. */
   get(id: string): Promise<Session | null>;
   /** Stop Claude (AC-9). A session that isn't working stays as it is. */
@@ -201,7 +208,11 @@ export interface SessionService {
     id: string,
     approvalId: string,
     decision: ApprovalDecision | { answers: readonly QuestionAnswer[] },
+    /** Where you answered outside Orynx (spec 057), for the answered step; left out in Orynx. */
+    from?: AnswerSource,
   ): Promise<RespondResult>;
+  /** Marks a waiting call's step with the services its question or ping couldn't be sent to (spec 057, AC-13). */
+  unsent(id: string, approvalId: string, where: readonly ('slack' | 'discord')[]): Promise<void>;
   /**
    * A follow-up (spec 013, Q1): read by Claude after its current step while it works, or carried on in Claude
    * Code's own session once it has finished or stopped. Sends one at a time for each session.
@@ -226,6 +237,8 @@ export interface SessionService {
   push(id: string, request: PushRequest): Promise<PushAnswer | null>;
   /** The review threads with Claude's replies, which writes nothing (spec 049); null for no such session. */
   draftReplies(id: string): Promise<ReplyDraftAnswer | null>;
+  /** The pull request's review threads for the Review comments tab and the diff (spec 057, B); reads only. */
+  reviewThreads(id: string): Promise<PullThreadsAnswer | null>;
   /** Posts the replies and resolves the ticked threads, on your press only (spec 049); null for no such session. */
   postReplies(id: string, request: ReplyRequest): Promise<ReplyAnswer | null>;
   /** Keeps, drops or edits one of Claude's review comments (spec 050); a posted one stays as it went. */
@@ -248,6 +261,11 @@ export interface SessionService {
    * does, branch kept, once. GitHub not answering changes nothing. One watch at a time.
    */
   watchPulls(): Promise<void>;
+  /**
+   * Your pull requests whose review threads changed on GitHub (spec 057, AC-24), as `owner/name#number`: each session on
+   * one is changed for the page, so its Review comments tab reads them again.
+   */
+  threadsChanged(pulls: readonly string[]): Promise<void>;
   /**
    * Spec 047, D: one run of Settings › Coding agent's Delete old sessions. The ended, unpinned sessions older than the
    * choice, with nothing to lose, go as Delete takes them, branch kept, one at a time; one that fails stays for the next
@@ -320,6 +338,8 @@ export interface SessionServiceOptions {
    * itself, Discard or Orynx closing, which you know about already.
    */
   onChange?: (before: Session, after: Session, change: { quiet: boolean }) => void;
+  /** Told how close you are to the agent's plan limit, as a running session heard it (spec 057, E). */
+  onLimit?: (status: 'allowed' | 'allowed_warning' | 'rejected', limit: ClaudeLimit | null) => void;
   /** Told after a cleanup run that deleted sessions: how many, and the bytes their worktrees held (spec 047, D). */
   onCleaned?: (count: number, bytes: number) => void;
   now?: () => number;
@@ -547,6 +567,14 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
   const stepTimers = new Map<string, { timer: NodeJS.Timeout; again: boolean }>();
   /** Your answers on their way to Claude, by approval id, so the log says what you answered. */
   const given = new Map<string, ApprovalAnswer>();
+  /** Where a session's question is being answered from outside Orynx, until its answered step (spec 057). */
+  const answeredFrom = new Map<string, AnswerSource>();
+  function withSource(id: string, work: AgentWork): AgentWork {
+    if (work.kind !== 'answered') return work;
+    const from = answeredFrom.get(id);
+    answeredFrom.delete(id);
+    return from === undefined ? work : { ...work, from };
+  }
   /** The calls an answer has been taken for, so a second answer, from another tab, is late. */
   const claimed = new Set<string>();
   /** Follow-ups one at a time for each session (spec 013). */
@@ -667,6 +695,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         what: 'answered',
         session: id,
         ticket,
+        approval: entry.id,
         about: entry.about,
         answer: entry.answer,
         by: entry.by,
@@ -731,6 +760,10 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
 
   function heard(id: string, run: Run, event: AgentEvent) {
     // A stopped turn's turns and cost count too (spec 047), so they come before Stop's cut-off.
+    if (event.type === 'limit') {
+      options.onLimit?.(event.status, event.limit);
+      return;
+    }
     if (event.type === 'usage') {
       track(
         change(id, (record) => ({
@@ -738,8 +771,10 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
           session: {
             ...record.session,
             turns: record.session.turns + event.turns,
-            // shortcut: assumes Claude Code's total carries across a resume; if a follow-up starts it at 0, add each run's.
-            costUsd: event.costUsd ?? record.session.costUsd,
+            // Claude Code's total carries across a resume, and a crashed run can say 0, so it never goes down (spec 057,
+            // AC-44). shortcut: if a follow-up ever starts the total at 0, add each run's instead.
+            costUsd:
+              event.costUsd === null ? record.session.costUsd : Math.max(event.costUsd, record.session.costUsd ?? 0),
           },
         })),
       );
@@ -763,7 +798,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         const update = () =>
           change(id, (record) => {
             const next = {
-              ...withProgress(record, (progress) => addWork(progress, event.work)),
+              ...withProgress(record, (progress) => addWork(progress, withSource(id, event.work))),
               ...keepLast(logWork(record.commandLog, event.work, record.commandsDropped), record.commandsDropped),
             };
             if (!finished) return next;
@@ -1748,6 +1783,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         unpushed: true,
         review: null,
         threadReply: null,
+        readAhead: false,
       },
       repository: { id: folder.id, path: folder.path },
       worktree: join(options.worktrees.root, id),
@@ -1770,7 +1806,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
    * the ticket, signed out, three working, the folder (Q7), then the chips as Jira and GitHub give them (AC-21).
    * Only then is the record made, with the brief its run starts from (AC-4, AC-20).
    */
-  async function composeNow(request: ComposerStart): Promise<StartSessionAnswer> {
+  async function composeNow(request: ComposerStart, readAhead = false): Promise<StartSessionAnswer> {
     const key = ticketKeyOf(request);
     const ask = request.mode === 'ask';
     // A ticket's live session stops a Build on it, unless you asked for another (spec 047); an Ask only reads, so it
@@ -1880,6 +1916,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
                 posted: [],
               },
         threadReply: null,
+        readAhead,
       },
       repository: folder === null ? null : { id: folder.id, path: folder.path },
       // An Ask session makes no worktree: Claude reads the folder itself (spec 026), or an empty one (spec 031). A
@@ -2087,6 +2124,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     draftPush: (id) => pullRequests.draftPush(id),
     push: (id, request) => whilePublishing(id, pullRequests.push(id, request)),
     draftReplies: (id) => pullRequests.draftReplies(id),
+    reviewThreads: (id) => pullRequests.reviewThreads(id),
     postReplies: (id, request) => pullRequests.postReplies(id, request),
     changeReviewComment: (id, commentId, change) => reviews.changeComment(id, commentId, change),
     reviewStatus: (id) => reviews.status(id),
@@ -2094,12 +2132,12 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     postThreadReply: (id, text) => threadReplies.post(id, text),
     dismissThreadReply: (id) => threadReplies.dismiss(id),
 
-    start(request) {
+    start(request, { readAhead = false } = {}) {
       // Starts on one ticket go one at a time, from Ship or the composer; so do composer starts with no ticket.
       const key = 'ticketKey' in request ? request.ticketKey : (ticketKeyOf(request) ?? 'composer');
       const waiting = starting.get(key);
       const turn = (waiting ?? Promise.resolve()).then(() =>
-        'ticketKey' in request ? startNow(request) : composeNow(request),
+        'ticketKey' in request ? startNow(request) : composeNow(request, readAhead),
       );
       starting.set(
         key,
@@ -2175,6 +2213,17 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
 
     remove(id, { branch = false } = {}) {
       return whileEnding(id, removeNow(id, branch));
+    },
+
+    async threadsChanged(pulls) {
+      if (pulls.length === 0) return;
+      const changed = new Set(pulls);
+      for (const { id } of await records.list()) {
+        const pull = (await records.get(id))?.session.pullRequest ?? null;
+        if (pull !== null && changed.has(`${pull.repository}#${String(pull.number)}`)) {
+          events.publish({ type: 'session.changed', sessionId: id });
+        }
+      }
     },
 
     cleanUp() {
@@ -2260,7 +2309,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       return there ? 'cannot_restart' : 'gone';
     },
 
-    async respond(id, approvalId, decision) {
+    async respond(id, approvalId, decision, from) {
       const record = await records.get(id);
       if (record === null) return 'not_found';
       const waiting = record.session.approvals.find((approval) => approval.id === approvalId);
@@ -2294,6 +2343,8 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         }
       }
       given.set(approvalId, choice ?? 'answer');
+      // Questions wait one at a time in a session, so the next answered step is this one's.
+      if (from !== undefined && answers !== null) answeredFrom.set(id, from);
       const answered = await run.adapter.respond(
         run.agentId,
         approvalId,
@@ -2301,9 +2352,24 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       );
       if (!answered) {
         given.delete(approvalId);
+        answeredFrom.delete(id);
         return 'already_answered';
       }
       return 'answered';
+    },
+
+    async unsent(id, approvalId, where) {
+      await change(id, (record) => ({
+        ...record,
+        session: {
+          ...record.session,
+          activities: record.session.activities.map((activity) =>
+            activity.kind === 'waiting' && activity.approvalId === approvalId
+              ? { ...activity, unsent: [...where] }
+              : activity,
+          ),
+        },
+      }));
     },
 
     async close() {

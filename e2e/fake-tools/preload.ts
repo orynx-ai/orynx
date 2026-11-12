@@ -31,6 +31,7 @@ import {
 import {
   acceptingBot,
   discordChannels,
+  discordDmConversation,
   discordHistory,
   discordMentions,
 } from '../../packages/core/src/test/fake-discord.ts';
@@ -114,6 +115,8 @@ function handlers() {
     slackChannels({ C024BE91L: 'web-platform' }),
     slackPosts(tools.slack === undefined ? [] : (tools.slack.posted ??= [])),
     ...acceptingBot({ servers: [{ id: '1100000000000000001', name: 'Acme' }] }),
+    // The bot's DM with you (spec 057): before Discord's other reads, which answer any channel.
+    ...discordDmConversation(undefined, (tools.discordDm ??= [])).handlers,
     discordMentions({}),
     discordChannels({}),
     discordHistory({}),

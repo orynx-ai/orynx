@@ -6,6 +6,7 @@ import {
   makeComposerStart,
   makeFileDiff,
   makePullRequestDraft,
+  makePullThread,
   makePushDraft,
   makeReplyDraft,
   makeSession,
@@ -23,6 +24,7 @@ import {
   sessionQueryKey,
   sessionQueryOptions,
   sessionReviewStatusQueryKey,
+  sessionReviewThreadsQueryOptions,
   sessionsQueryOptions,
 } from './index.ts';
 
@@ -635,5 +637,36 @@ describe('a review session (spec 050)', () => {
 
   it('keys the status under the session, so a change to the session reads it again', () => {
     expect(sessionReviewStatusQueryKey(id).slice(0, 1)).toEqual(queryKeys.sessions);
+  });
+});
+
+describe('review comments (spec 057, B)', () => {
+  const id = '0000000000000001';
+  const api = createApiClient({ baseURL, token: 'abc' });
+
+  it("AC-18: reads the threads with the page token, under the session's own key so its changes read them again", async () => {
+    let token: string | null = null;
+    const thread = makePullThread();
+    server.use(
+      http.get(`${baseURL}${apiRoutes.sessionReviewThreads.replace(':id', id)}`, ({ request }) => {
+        token = request.headers.get(tokenHeader);
+        return HttpResponse.json({ result: 'threads', threads: [thread] });
+      }),
+    );
+
+    expect(await api.reviewThreads(id)).toEqual({ result: 'threads', threads: [thread] });
+    expect(token).toBe('abc');
+    expect(sessionReviewThreadsQueryOptions(api, id).queryKey.slice(0, sessionQueryKey(id).length)).toEqual([
+      ...sessionQueryKey(id),
+    ]);
+  });
+
+  it('refuses an answer that breaks the contract', async () => {
+    server.use(
+      http.get(`${baseURL}${apiRoutes.sessionReviewThreads.replace(':id', id)}`, () =>
+        HttpResponse.json({ result: 'threads', threads: [{ id: 'x' }] }),
+      ),
+    );
+    await expect(api.reviewThreads(id)).rejects.toBeInstanceOf(ApiRequestError);
   });
 });

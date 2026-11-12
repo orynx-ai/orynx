@@ -80,6 +80,29 @@ describe('stepWords (Q10a)', () => {
     });
   });
 
+  it("057 AC-2, AC-13: where you answered from, and where a question couldn't be sent", () => {
+    const answers = [{ header: 'Library', answer: 'Day.js' }];
+    expect(step({ kind: 'answered', state: 'done', answers, from: 'discord' }).title).toBe('You answered from Discord');
+    expect(step({ kind: 'answered', state: 'done', answers, from: 'slack' }).title).toBe('You answered from Slack');
+    expect(step({ kind: 'answered', state: 'done', answers, from: 'notification' }).title).toBe(
+      'You answered from a notification',
+    );
+    const waiting = {
+      kind: 'waiting' as const,
+      state: 'running' as const,
+      approvalId: 'approval-q1',
+      about: 'question' as const,
+      text: 'Which date library should we use?',
+    };
+    expect(step({ ...waiting, unsent: ['discord'] }).detail).toBe(
+      "Which date library should we use? · Couldn't send the question to Discord. Answer it here.",
+    );
+    expect(step({ ...waiting, unsent: ['slack', 'discord'] }).detail).toBe(
+      "Which date library should we use? · Couldn't send the question to Slack and Discord. Answer it here.",
+    );
+    expect(step({ ...waiting, about: 'command', text: 'npm test', unsent: ['discord'] }).detail).toBe('npm test');
+  });
+
   it("051 AC-1, AC-2, AC-7, Q3: Claude's question waiting for you, your answer, and one you skipped", () => {
     const question = 'Which date library should we use?';
     expect(

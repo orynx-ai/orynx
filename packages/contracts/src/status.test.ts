@@ -13,6 +13,22 @@ describe('StatusSchema', () => {
     expect(StatusSchema.safeParse(makeStatus()).success).toBe(true);
   });
 
+  it("057 AC-45: says how close you are to Claude's limit, and a status from before spec 057 says nothing", () => {
+    const limit = { window: 'five_hour', usedPercent: 82, resetsAt: '2026-11-10T15:40:00.000Z' } as const;
+    expect(StatusSchema.parse({ ...makeStatus(), claudeLimit: limit }).claudeLimit).toEqual(limit);
+    const { claudeLimit: _, ...before } = makeStatus();
+    expect(StatusSchema.parse(before).claudeLimit).toBeNull();
+    expect(StatusSchema.safeParse({ ...makeStatus(), claudeLimit: { ...limit, usedPercent: 120 } }).success).toBe(
+      false,
+    );
+  });
+
+  it("057 AC-15: says whether the hub shows Claude's questions itself, and a status from before spec 057 doesn't", () => {
+    const { desktopReplies: _, ...before } = makeStatus();
+    expect(StatusSchema.parse(before).desktopReplies).toBe(false);
+    expect(StatusSchema.parse({ ...before, desktopReplies: true }).desktopReplies).toBe(true);
+  });
+
   it('rejects an unknown connection state', () => {
     const status = makeStatus();
     const result = StatusSchema.safeParse({

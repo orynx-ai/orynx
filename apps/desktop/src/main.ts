@@ -1,7 +1,7 @@
 import { once } from 'node:events';
 import { userInfo } from 'node:os';
 import { join } from 'node:path';
-import { app, BrowserWindow, dialog, shell, utilityProcess, type UtilityProcess } from 'electron';
+import { app, BrowserWindow, dialog, Notification, shell, utilityProcess, type UtilityProcess } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import { loadConfig } from './config.ts';
 import { alreadyRunningDialog, stoppedDialog, type Dialog } from './dialogs.ts';
@@ -10,6 +10,7 @@ import { navigationAction, newWindowAction } from './links.ts';
 import { openLogFile } from './log-file.ts';
 import { mergePaths, readLoginPath } from './login-path.ts';
 import { createMacUpdater, type MacUpdater } from './mac-update.ts';
+import { watchQuestions } from './questions.ts';
 import { watchUpdates } from './updates.ts';
 
 const config = loadConfig();
@@ -137,6 +138,30 @@ async function start(): Promise<void> {
   note(`The window opens ${hubOrigin}.`);
   openWindow(hubOrigin);
 
+  // Claude's questions with a reply box, which only macOS shows (spec 057, AC-15).
+  const questions =
+    process.platform === 'darwin'
+      ? watchQuestions({
+          notify: (shown) => new Notification(shown),
+          tell: (reply) => {
+            child.postMessage(reply);
+          },
+          inFront: () => BrowserWindow.getFocusedWindow() !== null,
+          open: (path) => {
+            if (hubOrigin === null) return;
+            const window = BrowserWindow.getAllWindows()[0] ?? openWindow(hubOrigin);
+            if (window.isMinimized()) window.restore();
+            window.focus();
+            void window.loadURL(`${hubOrigin}${path}`);
+          },
+        })
+      : null;
+  let updates: ReturnType<typeof watchUpdates> | null = null;
+  child.on('message', (message: unknown) => {
+    if (questions?.command(message) === true) return;
+    updates?.command(message);
+  });
+
   if (app.isPackaged) {
     autoUpdater.logger = null;
     // The updater tells the hub, and Settings › About shows it: no dialog of its own (spec 045, Q5).
@@ -145,7 +170,7 @@ async function start(): Promise<void> {
         ? // …/Orynx.app/Contents/MacOS/Orynx
           createMacUpdater({ app: join(app.getPath('exe'), '..', '..', '..'), feedUrl: config.updatesUrl })
         : null;
-    const updates = watchUpdates({
+    updates = watchUpdates({
       updater: autoUpdater,
       platform: process.platform,
       feedUrl: config.updatesUrl,
@@ -157,9 +182,6 @@ async function start(): Promise<void> {
         restartToUpdate(child, mac, note);
       },
       log: note,
-    });
-    child.on('message', (message: unknown) => {
-      updates.command(message);
     });
   }
 }

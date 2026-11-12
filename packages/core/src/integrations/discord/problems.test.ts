@@ -29,4 +29,10 @@ describe('Discord problems (spec 016)', () => {
       'Discord answered with an error (502). Try again in a minute.',
     );
   });
+
+  it("057 AC-13: a person who doesn't take the bot's DMs is told how to allow them", () => {
+    expect(describeDiscordProblem({ kind: 'dm_closed' })).toBe(
+      "Discord won't let the bot message you. Allow direct messages from a server you share with it.",
+    );
+  });
 });

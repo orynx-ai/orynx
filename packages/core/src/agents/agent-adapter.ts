@@ -13,6 +13,7 @@ import type {
   AgentModels,
   AlwaysAskReason,
   ChangeLine,
+  ClaudeLimit,
   EffortLevel,
   JiraChangeAsk,
   SessionQuestion,
@@ -107,6 +108,9 @@ export interface AgentRefusal {
 }
 
 /** One piece of the agent's work, once it has happened (or been refused). */
+/** Where you answered Claude's question outside Orynx (spec 057, A). */
+export type AnswerSource = 'slack' | 'discord' | 'notification';
+
 export type AgentWork =
   /** A read (with its file) or a search (no single file). */
   | { kind: 'explore'; file: string | null }
@@ -118,8 +122,11 @@ export type AgentWork =
   | { kind: 'command'; id: string; command: string }
   /** You denied a waiting call; `text` is the command, the edit's path, the ticket's key, or the question you skipped. */
   | { kind: 'denied'; about: AgentAsk['kind']; text: string }
-  /** You answered Claude's question (spec 051): each question's header and the answer Claude got. */
-  | { kind: 'answered'; answers: { header: string; answer: string }[] }
+  /**
+   * You answered Claude's question (spec 051): each question's header and the answer Claude got. `from` is where you
+   * answered outside Orynx (spec 057), which the session service adds; an adapter leaves it out.
+   */
+  | { kind: 'answered'; answers: { header: string; answer: string }[]; from?: AnswerSource }
   /** The agent can't run commands in this session: there's no sandbox on this computer (spec 012, Q2b). */
   | { kind: 'no_commands' }
   /** The agent used one of Orynx's ticket tools (spec 037), and this is what it did. */
@@ -158,6 +165,13 @@ export type AgentEvent =
   | { type: 'usage'; sessionId: string; turns: number; costUsd: number | null }
   /** `code` is safe to log; it never holds the agent's own words. */
   | { type: 'problem'; sessionId: string; kind: AgentProblemKind; code: string }
+  /** How close you are to the agent's plan limit (spec 057, E); Claude Code says it while a session runs. */
+  | {
+      type: 'limit';
+      sessionId: string;
+      status: 'allowed' | 'allowed_warning' | 'rejected';
+      limit: ClaudeLimit | null;
+    }
   /** The agent's program has ended, however it ended. Always the last event. */
   | { type: 'ended'; sessionId: string };
 

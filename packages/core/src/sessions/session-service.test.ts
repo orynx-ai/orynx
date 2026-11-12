@@ -806,6 +806,7 @@ describe('approvals (spec 012)', () => {
       what: 'answered',
       session: '0000000000000001',
       ticket: 'PROJ-1423',
+      approval: approval?.id,
       about: 'command',
       answer: 'allow_once',
       by: 'you',
@@ -1024,6 +1025,42 @@ describe('approvals (spec 012)', () => {
     const told = JSON.stringify(reports);
     expect(told).not.toContain('npm test');
     expect(told).not.toContain('content list');
+  });
+});
+
+describe('a question answered from outside Orynx (spec 057)', () => {
+  const library = {
+    question: 'Which date library should we use?',
+    header: 'Library',
+    multiSelect: false,
+    options: [
+      { label: 'date-fns', description: 'Already a dependency' },
+      { label: 'Day.js', description: 'Smaller, a new dependency' },
+    ],
+  };
+  const asks = [{ tool: 'AskUserQuestion', input: { questions: [library] } }, { finish: 'Used Day.js.' }];
+
+  it('AC-2: the answered step says where you answered from, and one from Orynx says nothing', async () => {
+    const { service, records } = await setUp({ script: asks });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const [approval] = await waitingCalls(records);
+
+    const answers = [{ picked: ['Day.js'], other: null }];
+    expect(await service.respond('0000000000000001', approval?.id ?? '', { answers }, 'discord')).toBe('answered');
+    const record = await settled(records);
+    const step = record.session.activities.find((activity) => activity.kind === 'answered');
+    expect(step).toMatchObject({ answers: [{ header: 'Library', answer: 'Day.js' }], from: 'discord' });
+  });
+
+  it("AC-13: the waiting step says where the question couldn't be sent", async () => {
+    const { service, records } = await setUp({ script: asks });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const [approval] = await waitingCalls(records);
+
+    await service.unsent('0000000000000001', approval?.id ?? '', ['discord']);
+    const record = await records.get('0000000000000001');
+    expect(record?.session.activities.at(-1)).toMatchObject({ kind: 'waiting', unsent: ['discord'] });
+    await service.stop('0000000000000001');
   });
 });
 
@@ -1798,6 +1835,20 @@ describe('follow-ups (spec 013)', () => {
     });
   });
 
+  it('057 AC-44: a follow-up whose run ends with a total of 0, as a crash can, keeps the cost saved', async () => {
+    const { service, records, sdk } = await setUp({
+      script: [{ finish: 'First.', turns: 3, costUsd: 1.42 }],
+      later: [[{ finish: 'Crashed.', turns: 0, costUsd: 0 }]],
+    });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    expect((await settled(records)).session).toMatchObject({ costUsd: 1.42 });
+    await service.send(id, 'One more thing');
+    await vi.waitFor(() => {
+      expect(sdk.runs[1]).toBeDefined();
+    });
+    expect((await settled(records)).session).toMatchObject({ costUsd: 1.42 });
+  });
+
   it('AC-2, AC-23: says the files changed at most once a second, with the session’s id only', async () => {
     const { service, records, heard } = await setUp({
       script: [edit('src/a.ts'), edit('src/b.ts'), edit('src/c.ts'), { finish: 'Done.' }],
@@ -2136,6 +2187,23 @@ describe('the pull request (spec 014)', () => {
       state: 'pr_open',
       pullRequest: { number: 2841, url: 'https://github.com/acme/web-app/pull/2841' },
     });
+  });
+});
+
+describe('review comments that changed on GitHub (spec 057, AC-24)', () => {
+  it('tells the page about the session whose pull request has new review comments, and no other', async () => {
+    const { service, records, heard } = await setUp({ script: [edit('src/a.ts'), { finish: 'First.' }] });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await settled(records);
+    await records.update('0000000000000001', (current) => ({
+      ...current,
+      session: { ...current.session, state: 'pr_open', pullRequest: makeSessionPullRequest() },
+    }));
+    const from = heard.length;
+
+    await service.threadsChanged(['acme/web-app#2841', 'acme/other#7']);
+
+    expect(heard.slice(from)).toEqual([{ type: 'session.changed', sessionId: '0000000000000001' }]);
   });
 });
 

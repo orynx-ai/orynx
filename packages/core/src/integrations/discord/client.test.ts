@@ -2,8 +2,11 @@ import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import {
   acceptingBot,
+  botId,
   discordApi,
   discordChannels,
+  discordDm,
+  discordDmClosed,
   discordHistory,
   discordMentions,
   discordMessage,
@@ -299,5 +302,86 @@ describe('a reply in a Discord thread (spec 016, E)', () => {
   it('AC-42: a refused post answers in Discord’s own words', async () => {
     discord.use(discordPosts([], true));
     expect(await client.postReply(discordToken, target, 'hi')).toEqual({ ok: false, reason: 'Missing Permissions' });
+  });
+});
+
+describe("the bot's DM with you (spec 057, A)", () => {
+  const dm = '1100000000000000300';
+  const message = (id: string, author: string, content: string, replyTo?: string): FakeDiscordMessage => ({
+    id,
+    channel_id: dm,
+    author: { id: author, username: author === discordUserId ? 'neha' : 'Orynx', bot: author !== discordUserId },
+    content,
+    timestamp: '2026-11-02T10:00:00.000Z',
+    ...(replyTo === undefined ? {} : { message_reference: { message_id: replyTo } }),
+  });
+
+  it('AC-1: opens the DM with your user ID, and sends as the bot, pinging nobody', async () => {
+    const opened: string[] = [];
+    const posted: { channel: string; body: unknown }[] = [];
+    discord.use(discordDm(dm, opened), discordPosts(posted));
+
+    expect(await client.openDm(discordToken, discordUserId)).toEqual({ ok: true, channel: dm });
+    expect(await client.sendDm(discordToken, dm, 'Claude has a question')).toEqual({
+      ok: true,
+      id: '1434480000000000001',
+    });
+    expect(opened).toEqual([discordUserId]);
+    expect(posted).toEqual([
+      { channel: dm, body: { content: 'Claude has a question', allowed_mentions: { parse: [] } } },
+    ]);
+  });
+
+  it("AC-2: Orynx's own reply is a Reply to yours", async () => {
+    const posted: { channel: string; body: unknown }[] = [];
+    discord.use(discordPosts(posted));
+
+    await client.sendDm(discordToken, dm, 'Sent to Claude.', '1434490000000000005');
+    expect(posted[0]?.body).toEqual({
+      content: 'Sent to Claude.',
+      message_reference: { message_id: '1434490000000000005', fail_if_not_exists: false },
+      allowed_mentions: { parse: [] },
+    });
+  });
+
+  it('AC-8: reads the messages after one, oldest first, with who wrote each and what it Replies to', async () => {
+    discord.use(
+      discordHistory({
+        [dm]: [
+          message('1434480000000000001', botId, 'Claude has a question'),
+          message('1434490000000000002', discordUserId, '2', '1434480000000000001'),
+          message('1434490000000000003', discordUserId, 'and also'),
+        ],
+      }),
+    );
+
+    expect(await client.dmAfter(discordToken, dm, '1434480000000000001')).toEqual({
+      ok: true,
+      messages: [
+        { id: '1434490000000000002', author: discordUserId, text: '2', replyTo: '1434480000000000001' },
+        { id: '1434490000000000003', author: discordUserId, text: 'and also', replyTo: null },
+      ],
+    });
+  });
+
+  it("AC-13: a person who doesn't take the bot's DMs, a rate limit and a refused token are problems", async () => {
+    discord.use(discordDmClosed());
+    expect(await client.sendDm(discordToken, dm, 'hi')).toEqual({ ok: false, problem: { kind: 'dm_closed' } });
+
+    discord.use(
+      http.get(`${discordApi}/channels/:channel/messages`, () =>
+        HttpResponse.json({ message: 'You are being rate limited.', retry_after: 2.5 }, { status: 429 }),
+      ),
+    );
+    expect(await client.dmAfter(discordToken, dm, '1')).toEqual({
+      ok: false,
+      problem: { kind: 'rate_limited', resetAt: now + 2500 },
+    });
+
+    discord.use(discordDm(dm));
+    expect(await client.openDm('fake-wrong-token', discordUserId)).toEqual({
+      ok: false,
+      problem: { kind: 'rejected' },
+    });
   });
 });

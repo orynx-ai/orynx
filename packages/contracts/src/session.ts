@@ -125,6 +125,10 @@ export const SessionSummarySchema = z.object({
   mode: SessionModeSchema.default('build'),
   /** The agent it runs on, for life (spec 052); a session saved before spec 052 ran on Claude. */
   agent: AgentIdSchema.default('claude'),
+  /** What its turns would cost at API prices (spec 047), for the Sessions page (spec 057, E); null when none said. */
+  costUsd: z.number().nonnegative().nullable().default(null),
+  /** When it started, so the Sessions page counts its cost on that day (spec 057, E); null in a summary from before. */
+  startedAt: z.iso.datetime().nullable().default(null),
 });
 export type SessionSummary = z.infer<typeof SessionSummarySchema>;
 
@@ -304,6 +308,8 @@ export const SessionActivitySchema = z.discriminatedUnion('kind', [
     approvalId: z.string().min(1),
     about: z.enum(['command', 'edit', 'ticket', 'server', 'jira', 'question']),
     text: z.string().nullable(),
+    /** Where the question or its ping couldn't be sent (spec 057, AC-13); absent when it went everywhere asked. */
+    unsent: z.array(z.enum(['slack', 'discord'])).optional(),
   }),
   /** Commands that ran, in the order they were allowed. */
   ActivityBaseSchema.extend({
@@ -328,6 +334,8 @@ export const SessionActivitySchema = z.discriminatedUnion('kind', [
   ActivityBaseSchema.extend({
     kind: z.literal('answered'),
     answers: z.array(z.object({ header: z.string(), answer: z.string().min(1) })).min(1),
+    /** Where you answered from outside Orynx (spec 057); absent when you answered in Orynx. */
+    from: z.enum(['slack', 'discord', 'notification']).optional(),
   }),
   /** Claude can't run commands in this session (spec 012, Q2b). */
   ActivityBaseSchema.extend({ kind: z.literal('no_commands'), reason: z.enum(['no_sandbox']) }),
@@ -705,6 +713,8 @@ export const SessionSchema = SessionSummarySchema.extend({
   review: SessionReviewSchema.nullable().default(null),
   /** Its reply in the first thread it was sent (spec 016, E); null while offered, and on every other session. */
   threadReply: ThreadReplySchema.nullable().default(null),
+  /** A review Orynx started without a press, as Read review requests ahead does (spec 057, D). */
+  readAhead: z.boolean().default(false),
 });
 export type Session = z.infer<typeof SessionSchema>;
 

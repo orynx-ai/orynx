@@ -4,6 +4,7 @@ import {
   ConnectionCheckSchema,
   SlackConnectionSchema,
   type ConnectionCheck,
+  type SlackBotRequest,
   type SlackConnection,
   type SlackConnectionRequest,
 } from '@devhub/contracts';
@@ -30,4 +31,14 @@ export async function postSlackConnectionCheck(http: AxiosInstance): Promise<Con
 
 export async function deleteSlackConnection(http: AxiosInstance): Promise<void> {
   await http.delete(apiRoutes.slackConnection);
+}
+
+/** The server checks the bot's token with Slack before it saves anything (spec 057, AC-14). */
+export async function putSlackBot(http: AxiosInstance, request: SlackBotRequest): Promise<SlackConnection> {
+  const res = await http.put<unknown>(apiRoutes.slackBot, request);
+  return SlackConnectionSchema.parse(res.data);
+}
+
+export async function deleteSlackBot(http: AxiosInstance): Promise<void> {
+  await http.delete(apiRoutes.slackBot);
 }

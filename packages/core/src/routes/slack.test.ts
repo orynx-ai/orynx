@@ -11,9 +11,9 @@ import {
 import { createServer } from '../create-server.ts';
 import { createEventBus } from '../events/event-bus.ts';
 import { createMemoryKeychain } from '../secrets/memory-keychain.ts';
-import { slackToken, useFakeSlack } from '../test/fake-slack.ts';
+import { acceptingBotToken, slackBotToken, slackToken, useFakeSlack } from '../test/fake-slack.ts';
 
-useFakeSlack();
+const slack = useFakeSlack();
 const token = 'test-token-0123456789';
 const port = 4317;
 const headers = { host: `127.0.0.1:${String(port)}`, [tokenHeader]: token };
@@ -49,6 +49,7 @@ describe('/api/slack/connection (spec 016)', () => {
     ).toEqual({
       saved: null,
       envToken: false,
+      bot: false,
     });
     const put = await app.inject({
       method: 'PUT',
@@ -91,5 +92,88 @@ describe('/api/slack/connection (spec 016)', () => {
     expect(await keychain.get('slack')).toBeNull();
     const status = StatusSchema.parse((await app.inject({ method: 'GET', url: apiRoutes.status, headers })).json());
     expect(status.integrations.slack.state).toBe('not_connected');
+  });
+});
+
+describe('/api/slack/connection/bot (spec 057, AC-14)', () => {
+  async function connected() {
+    const made = await server();
+    await made.app.inject({ method: 'PUT', url: apiRoutes.slackConnection, headers, payload: { token: slackToken } });
+    return made;
+  }
+
+  it('checks a bot token with Slack, keeps it in the keychain, and the connection says there is a bot', async () => {
+    const { app, keychain } = await connected();
+    slack.use(acceptingBotToken());
+
+    const put = await app.inject({
+      method: 'PUT',
+      url: apiRoutes.slackBot,
+      headers,
+      payload: { token: slackBotToken },
+    });
+    expect(put.statusCode).toBe(200);
+    expect(SlackConnectionSchema.parse(put.json()).bot).toBe(true);
+    expect(put.body).not.toContain(slackBotToken);
+    expect(await keychain.get('slack_bot')).toBe(slackBotToken);
+    expect(await keychain.get('slack')).toBe(slackToken);
+    const read = await app.inject({ method: 'GET', url: apiRoutes.slackConnection, headers });
+    expect(SlackConnectionSchema.parse(read.json()).bot).toBe(true);
+  });
+
+  it("a token that isn't a bot's, lacks a scope, or is another workspace's says so, and nothing is saved", async () => {
+    const { app, keychain } = await connected();
+    const refused = { code: 'integration_rejected', message: "That token didn't work with Slack." };
+
+    const yours = await app.inject({ method: 'PUT', url: apiRoutes.slackBot, headers, payload: { token: slackToken } });
+    expect(yours.statusCode).toBe(422);
+    expect(ApiErrorSchema.parse(yours.json())).toEqual(refused);
+
+    slack.use(acceptingBotToken({ scopes: ['chat:write'] }));
+    const scopes = await app.inject({
+      method: 'PUT',
+      url: apiRoutes.slackBot,
+      headers,
+      payload: { token: slackBotToken },
+    });
+    expect(ApiErrorSchema.parse(scopes.json())).toEqual(refused);
+
+    slack.use(acceptingBotToken({ url: 'https://other.slack.com/' }));
+    const other = await app.inject({
+      method: 'PUT',
+      url: apiRoutes.slackBot,
+      headers,
+      payload: { token: slackBotToken },
+    });
+    expect(ApiErrorSchema.parse(other.json())).toEqual(refused);
+
+    expect(await keychain.get('slack_bot')).toBeNull();
+  });
+
+  it('Remove forgets the bot, and disconnecting Slack forgets it too', async () => {
+    const { app, keychain } = await connected();
+    slack.use(acceptingBotToken());
+    await app.inject({ method: 'PUT', url: apiRoutes.slackBot, headers, payload: { token: slackBotToken } });
+
+    expect((await app.inject({ method: 'DELETE', url: apiRoutes.slackBot, headers })).statusCode).toBe(204);
+    expect(await keychain.get('slack_bot')).toBeNull();
+    const read = await app.inject({ method: 'GET', url: apiRoutes.slackConnection, headers });
+    expect(SlackConnectionSchema.parse(read.json()).bot).toBe(false);
+
+    await app.inject({ method: 'PUT', url: apiRoutes.slackBot, headers, payload: { token: slackBotToken } });
+    await app.inject({ method: 'DELETE', url: apiRoutes.slackConnection, headers });
+    expect(await keychain.get('slack_bot')).toBeNull();
+  });
+
+  it('asks you to connect Slack first', async () => {
+    const { app } = await server();
+    const put = await app.inject({
+      method: 'PUT',
+      url: apiRoutes.slackBot,
+      headers,
+      payload: { token: slackBotToken },
+    });
+    expect(put.statusCode).toBe(400);
+    expect(ApiErrorSchema.parse(put.json()).message).toBe('Connect Slack in Connections first.');
   });
 });

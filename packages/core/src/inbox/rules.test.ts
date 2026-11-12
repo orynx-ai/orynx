@@ -84,6 +84,7 @@ describe('inbox rules', () => {
         reason: { kind: 'status', category: 'in_progress' },
         waitingSince: '2026-10-15T09:00:00.000Z',
         target: { kind: 'external', url: 'https://your-team.atlassian.net/browse/PROJ-1423' },
+        readAhead: null,
       },
     ]);
   });
@@ -121,6 +122,7 @@ describe('inbox rules', () => {
       reason: { kind: 'review_requested' },
       waitingSince: '2026-10-15T10:00:00.000Z',
       target: { kind: 'external', url: 'https://github.com/acme/web-app/pull/2841/files' },
+      readAhead: null,
     });
   });
 
@@ -132,6 +134,7 @@ describe('inbox rules', () => {
       waitingSince: '2026-10-17T07:00:00.000Z',
       subject: { mine: true },
       target: { kind: 'external', url: 'https://github.com/acme/web-app/pull/2836/checks' },
+      readAhead: null,
     });
   });
 
@@ -142,6 +145,7 @@ describe('inbox rules', () => {
       reason: { kind: 'unresolved_comments', count: 2 },
       waitingSince: '2026-10-16T08:00:00.000Z',
       target: { kind: 'external', url: 'https://github.com/acme/web-app/pull/2836' },
+      readAhead: null,
     });
   });
 
@@ -196,6 +200,7 @@ describe('inbox rules', () => {
         reason: { kind: 'approval' },
         waitingSince: '2026-10-17T09:55:00.000Z',
         target: { kind: 'session', sessionId: 'session-7' },
+        readAhead: null,
       },
     ]);
   });
@@ -341,6 +346,7 @@ describe('Slack and Discord rows (spec 016, B)', () => {
         reason: { kind: 'no_reply' },
         waitingSince: '2026-11-02T09:00:00.000Z',
         target: { kind: 'external', url: discord.url },
+        readAhead: null,
       },
       {
         id: 'slack:C024BE91L/1793613600.000100',
@@ -351,6 +357,7 @@ describe('Slack and Discord rows (spec 016, B)', () => {
         reason: { kind: 'no_reply' },
         waitingSince: '2026-11-02T10:00:00.000Z',
         target: { kind: 'external', url: slack().url },
+        readAhead: null,
       },
     ]);
   });

@@ -23,6 +23,11 @@ import { createSyncActivityService } from './inbox/sync-activity-service.ts';
 import { registerLocalOnly } from './plugins/local-only.ts';
 import { createNotificationService } from './notifications/notification-service.ts';
 import { createNotificationSettingsService } from './notifications/notification-settings.ts';
+import { createChatAnswers, type DesktopQuestions } from './chat-answers/chat-answers.ts';
+import { createLimitWatch } from './limits/limit-watch.ts';
+import { pullsWithNewThreads } from './sessions/pull-changes.ts';
+import { createStandupService } from './standup/standup-service.ts';
+import { createReadAhead, type ReadAheadService } from './read-ahead/read-ahead-service.ts';
 import { createPreferencesService } from './preferences/preferences-service.ts';
 import { createRepositoryService, FolderRejectedError } from './repositories/repository-service.ts';
 import { createSkillStore, orynxSkillsFolder, SkillRejectedError } from './skills/skill-store.ts';
@@ -46,6 +51,7 @@ import { inboxRoutes } from './routes/inbox.ts';
 import { syncActivityRoutes } from './routes/sync-activity.ts';
 import { jiraRoutes } from './routes/jira.ts';
 import { notificationsRoutes } from './routes/notifications.ts';
+import { standupRoutes } from './routes/standup.ts';
 import { storageRoutes } from './routes/storage.ts';
 import { preferencesRoutes } from './routes/preferences.ts';
 import { repositoriesRoutes } from './routes/repositories.ts';
@@ -104,6 +110,10 @@ export interface CoreOptions {
   events?: EventBus;
   /** Keep-alive interval for the event stream. */
   eventsKeepAliveMs?: number;
+  /** How often a question sent to Slack or Discord is read for your reply (spec 057); 15 s when left out. */
+  chatAnswersEveryMs?: number;
+  /** The desktop app's notifications, when this hub runs in it on macOS (spec 057, AC-15). */
+  desktopQuestions?: DesktopQuestions;
   /** Where sessions are kept. Hosts pass the store under DEVHUB_HOME (spec 011); tests get memory. */
   sessions?: SessionRecords;
   /** Orynx's own tickets (spec 037). Hosts pass `<DEVHUB_HOME>/tickets.json`; tests get memory. */
@@ -401,6 +411,8 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
   });
   // The session service is made below; until then a sync has no sessions to watch (spec 047).
   let watchPulls: () => Promise<void> = () => Promise.resolve();
+  let threadsChanged: (pulls: readonly string[]) => Promise<void> = () => Promise.resolve();
+  let readAhead: ReadAheadService | null = null;
   const inbox = createInboxService({
     cache,
     settings,
@@ -413,6 +425,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     sessions,
     preferences,
     events,
+    waitingToRead: () => readAhead?.waiting() ?? [],
     onProblem: (tool, problem) => {
       app.log.warn({ tool, problem }, 'The inbox sync could not read this tool');
     },
@@ -425,6 +438,12 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
       if (tool === 'github') {
         watchPulls().catch((error: unknown) => {
           app.log.error(error, 'Watching the sessions’ pull requests failed');
+        });
+        // A review asked of you may be read ahead (spec 057, D).
+        readAhead?.synced(after);
+        // A reviewer's new thread reaches the session's Review comments tab (spec 057, AC-24).
+        threadsChanged(pullsWithNewThreads(before, after)).catch((error: unknown) => {
+          app.log.error(error, 'Telling sessions about new review comments failed');
         });
       }
     },
@@ -510,6 +529,34 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     // Nothing you started in a Terminal outlives Orynx.
     app.addHook('onClose', () => terminal.close());
   }
+  // How close you are to Claude's limit (spec 057, E), as its sessions hear it: in status, and told once a window.
+  const limits = createLimitWatch({
+    events,
+    notify: (limit) => {
+      notifications.limitNear(limit);
+    },
+  });
+  app.addHook('onClose', () => {
+    limits.close();
+  });
+  // Claude's questions answered from Slack or Discord (spec 057, A), through the session service's own respond().
+  const chatAnswers = createChatAnswers({
+    settings: createNotificationSettingsService({ settings, events }),
+    sessions: {
+      respond: (...answer) => sessionService.respond(...answer),
+      unsent: (...marked) => sessionService.unsent(...marked),
+    },
+    slack: { client: slackClient, connection: slack },
+    discord: { client: discordClient, connection: discord },
+    ...(options.chatAnswersEveryMs === undefined ? {} : { everyMs: options.chatAnswersEveryMs }),
+    ...(options.desktopQuestions === undefined ? {} : { desktop: options.desktopQuestions }),
+    onProblem: (service, problem) => {
+      app.log.warn({ [service]: problem }, "A message about Claude's question couldn't be sent");
+    },
+    onError: (error) => {
+      app.log.error(error, "Answering Claude's question from chat failed");
+    },
+  });
   const sessionService = createSessionService({
     // Each Build reads your ask first (spec 042).
     readAsks: true,
@@ -572,12 +619,17 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     ...(terminal === null ? {} : { terminal, ports: createPortService({}) }),
     onChange: (before, after, change) => {
       notifications.sessionChanged(before, after, change);
+      chatAnswers.sessionChanged(before, after);
     },
     onCleaned: (count, bytes) => {
       notifications.sessionsCleaned(count, bytes);
     },
+    onLimit: (status, limit) => {
+      limits.heard(status, limit);
+    },
     // Kinds, ids and codes only: never the ticket's text or Claude's words (AC-21).
     onReport: (report) => {
+      chatAnswers.reported(report);
       switch (report.what) {
         case 'started':
           app.log.info(report, 'Claude started a session');
@@ -601,6 +653,17 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     },
   });
   watchPulls = () => sessionService.watchPulls();
+  threadsChanged = (pulls) => sessionService.threadsChanged(pulls);
+  readAhead = createReadAhead({
+    preferences,
+    sessions: { list: () => sessions.list(), start: (request, start) => sessionService.start(request, start) },
+    events,
+    onError: (error) => {
+      app.log.error(error, 'Reading a review request ahead failed');
+    },
+  });
+  const reading = readAhead;
+  app.addHook('onClose', () => reading.close());
   // Delete old sessions runs on its own only where syncs do (spec 047, D): never in a test by surprise.
   const cleanup =
     options.autoSync === true
@@ -615,6 +678,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
   app.addHook('onClose', async () => {
     cleanup?.stop();
     await sessionService.close();
+    await chatAnswers.close();
   });
   const updates =
     options.updates === undefined
@@ -650,6 +714,8 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     discord: () => discord.status(),
     claude: () => claude.connected(),
     codex: () => codexLogin.connected(),
+    desktopReplies: options.desktopQuestions !== undefined,
+    claudeLimit: () => limits.current(),
   });
 
   await app.register(
@@ -718,6 +784,13 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
         setup: createSetupService({ settings, password: options.password ?? createPasswordStore() }),
       });
       await api.register(storageRoutes, { sessions: sessionService });
+      await api.register(standupRoutes, {
+        standup: createStandupService({
+          sessions,
+          github: { client: githubClient, credentials: () => github.credentials() },
+          jira: { client: jiraClient, credentials: () => jira.credentials() },
+        }),
+      });
       await api.register(notificationsRoutes, {
         notifications,
         settings: createNotificationSettingsService({ settings, events }),

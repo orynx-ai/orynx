@@ -99,6 +99,8 @@ export const PreferencesSchema = z.object({
   deleteSessionsAfterDays: CleanupDaysSchema.nullable(),
   /** How long a Slack or Discord message waits on your reply before Home lists it (spec 016, B). */
   replyWaitMinutes: ReplyWaitMinutesSchema,
+  /** Claude reviews each new review request in the background, posting nothing (spec 057, D); off by default. */
+  readReviewsAhead: z.boolean(),
 });
 export type Preferences = z.infer<typeof PreferencesSchema>;
 
@@ -120,6 +122,7 @@ export const defaultPreferences: Preferences = {
   jiraChanges: false,
   deleteSessionsAfterDays: null,
   replyWaitMinutes: 120,
+  readReviewsAhead: false,
 };
 
 /**
@@ -142,10 +145,11 @@ export const PreferencesChangeSchema = z
     jiraChanges: z.boolean().optional(),
     deleteSessionsAfterDays: CleanupDaysSchema.nullable().optional(),
     replyWaitMinutes: ReplyWaitMinutesSchema.optional(),
+    readReviewsAhead: z.boolean().optional(),
   })
   .refine((change) => Object.values(change).some((value) => value !== undefined), {
     message:
-      'Send a permission, at least one rule, a command, the editor, Claude changes Jira, Delete old sessions, or the reply wait.',
+      'Send a permission, at least one rule, a command, the editor, Claude changes Jira, Delete old sessions, the reply wait, or Read review requests ahead.',
   })
   .refine((change) => change.repository === undefined || change.permissions !== undefined, {
     message: 'Send the permissions to change for that repository.',

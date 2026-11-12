@@ -187,3 +187,17 @@ describe('notification words for a session on Codex (spec 052, Q4)', () => {
     expect(notificationWords(approval('push', 'git push')).title).toBe('Claude wants to push');
   });
 });
+
+describe('close to your Claude limit (spec 057, AC-45)', () => {
+  it('says so, with how much is used and when it resets, the same on the desktop', () => {
+    const words = notificationWords({ kind: 'limit_near', window: 'seven_day', usedPercent: 91, resetsAt: null });
+    expect(words).toEqual({
+      title: 'Close to your Claude limit',
+      detail: "You've used 91% of your weekly Claude limit.",
+      desktop: "You've used 91% of your weekly Claude limit.",
+    });
+    expect(notificationPlace({ kind: 'limit_near', window: 'seven_day', usedPercent: 91, resetsAt: null })).toEqual({
+      kind: 'sessions',
+    });
+  });
+});

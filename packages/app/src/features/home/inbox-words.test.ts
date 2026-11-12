@@ -139,6 +139,33 @@ describe('Home’s words', () => {
     ).toBe('PROJ-1');
   });
 
+  it('057 AC-35, AC-36, AC-38: a review read ahead says how far Claude has got in place of the wait', () => {
+    const asked = (readAhead: InboxItem['readAhead']) =>
+      reasonPill(makeInboxItem({ reason: { kind: 'review_requested' }, waitingSince: ago(day), readAhead }), now);
+    expect(asked({ state: 'waiting', sessionId: null })).toEqual({
+      text: 'Waiting to read',
+      spoken: 'Waiting to read',
+      tone: 'neutral',
+    });
+    expect(asked({ state: 'reading', sessionId: 's1' })).toMatchObject({ text: 'Claude is reading', tone: 'info' });
+    expect(asked({ state: 'ready', sessionId: 's1' })).toMatchObject({ text: 'Draft ready', tone: 'success' });
+  });
+
+  it('057 AC-36: Review on a request Claude reads ahead opens that session', () => {
+    const item = makeInboxItem({
+      title: 'Lazy-load the people directory',
+      reason: { kind: 'review_requested' },
+      readAhead: { state: 'ready', sessionId: '0000000000000007' },
+    });
+    expect(rowAction(item)).toEqual({
+      kind: 'session',
+      sessionId: '0000000000000007',
+      label: 'Open session',
+      name: 'Open session: Lazy-load the people directory',
+    });
+    expect(rowAction({ ...item, readAhead: { state: 'waiting', sessionId: null } })).toMatchObject({ kind: 'review' });
+  });
+
   it('050 AC-1: a review asked of you on someone else’s pull request gets Review with Claude, named for it', () => {
     expect(rowAction(makeInboxItem({ reason: { kind: 'review_requested' } }))).toEqual({
       kind: 'review',

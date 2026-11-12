@@ -1,7 +1,7 @@
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import { isAbsolute, relative } from 'node:path';
 import { z } from 'zod';
-import { TodoStatusSchema } from '@devhub/contracts';
+import { ClaudeLimitSchema, TodoStatusSchema, type ClaudeLimit } from '@devhub/contracts';
 import type { AgentProblemKind, AgentWork } from '../agent-adapter.ts';
 
 /**
@@ -30,6 +30,11 @@ export type ReadMessage =
   | { type: 'usage'; turns: number; costUsd: number | null }
   /** An edit or a command has ended, so the worktree's files may have changed (spec 013, AC-2). */
   | { type: 'files_changed' }
+  /**
+   * How close you are to a plan limit (spec 057, E), as Claude Code's rate-limit event says it; `limit` is null for one
+   * outside the plan's windows, such as extra usage.
+   */
+  | { type: 'limit'; status: 'allowed' | 'allowed_warning' | 'rejected'; limit: ClaudeLimit | null }
   /** A command's result (spec 036): its output, whether it failed, and the time since Claude asked for it. */
   | { type: 'command_ended'; id: string; output: string; failed: boolean; ms: number }
   | { type: 'problem'; kind: ProblemKind; code: string };
@@ -81,6 +86,28 @@ const ResultSchema = z.object({
   num_turns: z.number().int().nonnegative().optional(),
   total_cost_usd: z.number().nonnegative().optional(),
 });
+
+/** Claude Code's rate-limit event (Agent SDK 0.3.302): `utilization` is a share of 1, `resetsAt` in seconds. */
+const RateLimitSchema = z.object({
+  type: z.literal('rate_limit_event'),
+  rate_limit_info: z.object({
+    status: z.enum(['allowed', 'allowed_warning', 'rejected']),
+    rateLimitType: z.string().optional(),
+    utilization: z.number().min(0).optional(),
+    resetsAt: z.number().positive().optional(),
+  }),
+});
+const windows = new Set(['five_hour', 'seven_day', 'seven_day_opus', 'seven_day_sonnet']);
+
+function limitOf(info: z.infer<typeof RateLimitSchema>['rate_limit_info']): ClaudeLimit | null {
+  const window = ClaudeLimitSchema.shape.window.safeParse(info.rateLimitType);
+  if (!window.success || !windows.has(window.data) || info.utilization === undefined) return null;
+  return {
+    window: window.data,
+    usedPercent: Math.min(100, Math.round(info.utilization * 100)),
+    resetsAt: info.resetsAt === undefined ? null : new Date(info.resetsAt * 1000).toISOString(),
+  };
+}
 
 const PathInputSchema = z.object({ file_path: z.string() });
 const CommandInputSchema = z.object({ command: z.string().min(1) });
@@ -205,6 +232,12 @@ export function createMessageReader(
           loaded: { tools: tools.length, mcpServers: mcp_servers.length, plugins: plugins.length },
         },
       ];
+    }
+
+    const rateLimit = RateLimitSchema.safeParse(message);
+    if (rateLimit.success) {
+      const info = rateLimit.data.rate_limit_info;
+      return [{ type: 'limit', status: info.status, limit: limitOf(info) }];
     }
 
     const assistantError = AssistantErrorSchema.safeParse(message);

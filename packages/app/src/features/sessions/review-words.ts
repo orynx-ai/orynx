@@ -64,3 +64,18 @@ export function reviewProblemLine(problem: ReplyProblem, repository: string): st
       return 'GitHub refused it. Try again.';
   }
 }
+
+/** The Review comments tab (spec 057, B, Q9): reviewers' threads on the session's own pull request. */
+export const reviewCommentsWords = {
+  tab: 'Review comments',
+  empty: 'No open review comments.',
+  failed: "Couldn't load review comments.",
+  tryAgain: 'Try again',
+  outdated: 'Outdated',
+  notHere: "Not in this session's changes",
+  openOnGitHub: 'Open on GitHub',
+  /** "line 42", or "the whole file". */
+  where: (line: number | null) => (line === null ? 'the whole file' : `line ${String(line)}`),
+  /** A thread's note: "maria on line 42". */
+  note: (author: string, line: number | null) => `${author} on ${reviewCommentsWords.where(line)}`,
+};

@@ -1,3 +1,4 @@
+import type { FakeDiscordMessage } from '../../packages/core/src/test/fake-discord.ts';
 import type { FakeIssue } from '../../packages/core/src/test/fake-jira.ts';
 import type { FakeMention, FakeSlackMessage } from '../../packages/core/src/test/fake-slack.ts';
 import type {
@@ -67,6 +68,12 @@ export const chatHubPort = 4378;
 /** The twelfth, for Codex beside Claude (spec 052): the only hub whose Codex is there, a fake signed in with ChatGPT. */
 export const codexHubPort = 4376;
 
+/**
+ * The thirteenth, for spec 057: Claude's questions answered from the fake Discord, the standup and the spend. Its
+ * Discord is connected and its sessions near Claude's limit, which Slack and Discord's own spec never expects.
+ */
+export const answersHubPort = 4370;
+
 /** Where a spec tells a hub's fakes what Jira and GitHub hold, with `PUT /tools`: the port below the hub's. */
 export function controlPortFor(hubPort: number): number {
   return hubPort - 1;
@@ -95,6 +102,8 @@ export interface FakeTools {
   threadWrites?: FakeThreadWrite[];
   /** Every review posted (spec 050), in order. */
   postedReviews?: FakePostedReview[];
+  /** The Discord bot's DM with you (spec 057): what Orynx sends, and the replies a spec adds as you. */
+  discordDm?: FakeDiscordMessage[];
   /** Slack's mentions of you and their threads (spec 016), and every reply Orynx posts. */
   slack?: { mentions: FakeMention[]; threads: Record<string, FakeSlackMessage[]>; posted?: FakeSlackPost[] };
 }

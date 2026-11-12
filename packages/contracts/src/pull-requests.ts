@@ -190,6 +190,43 @@ export const ReviewThreadSchema = z.object({
 });
 export type ReviewThread = z.infer<typeof ReviewThreadSchema>;
 
+/** One comment in a reviewer's thread (spec 057, B): who wrote it, what it says, and when. */
+export const ThreadCommentSchema = z.object({
+  author: z.string().min(1),
+  body: z.string(),
+  at: z.iso.datetime(),
+});
+export type ThreadComment = z.infer<typeof ThreadCommentSchema>;
+
+/**
+ * An unresolved review thread on the session's own pull request, as the Review comments tab and the Changes diff show
+ * it (spec 057, B). Read from GitHub as the tab opens, never kept.
+ */
+export const PullThreadSchema = z.object({
+  id: z.string().min(1),
+  path: z.string().min(1),
+  /** Null for a comment on the whole file, or one GitHub no longer places. */
+  line: z.int().positive().nullable(),
+  /** The diff's side: the new file (GitHub's RIGHT), or the old one for a removed line (LEFT). */
+  side: z.enum(['new', 'old']),
+  /** GitHub says the code it was about has changed since. */
+  outdated: z.boolean(),
+  url: GitHubLinkSchema,
+  /** Every comment, oldest first, at most 20 as spec 049 reads them. */
+  comments: z.array(ThreadCommentSchema).min(1).max(20),
+  /** It can sit in the Changes diff: not outdated, and nothing in its file has changed since the last push (AC-20). */
+  placeable: z.boolean(),
+});
+export type PullThread = z.infer<typeof PullThreadSchema>;
+
+/** GET /api/sessions/:id/review-threads: the threads, why there can't be any, or GitHub's problem (spec 057, B). */
+export const PullThreadsAnswerSchema = z.discriminatedUnion('result', [
+  z.object({ result: z.literal('threads'), threads: z.array(PullThreadSchema).max(mostReviewThreads) }),
+  z.object({ result: z.literal('cannot'), reason: CannotReplyReasonSchema }),
+  z.object({ result: z.literal('failed'), problem: OpenProblemSchema }),
+]);
+export type PullThreadsAnswer = z.infer<typeof PullThreadsAnswerSchema>;
+
 export const ReplyDraftSchema = z.object({
   result: z.literal('draft'),
   number: z.int().positive(),

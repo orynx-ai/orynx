@@ -93,6 +93,8 @@ States come from `SessionStateSchema` in `packages/contracts/src/session.ts`: `w
 4. The Session screen shows the oldest waiting call in the amber callout (`role="alert"`, never focused by itself) with Allow once, Always allow <entry> (only where offered) and Deny.
 5. `POST /api/sessions/:id/approvals/:approvalId` reaches `SessionService.respond()`: Always allow saves the entry first (a failed save decides nothing), then `adapter.respond()` ends the wait. The first answer counts; a late one is 409. Stop, Discard and closing deny every waiting call. Each call is kept in `session.json`'s `approvalLog`; the log names only kinds and answers.
 6. **Claude's questions (spec 051)** are a `question` approval from `AskUserQuestion`, in every mode and every session with tools. They're never a permission and never Always allow. The answer goes back as `updatedInput` with `answers` keyed by each question's text, after `respond()` checks it against the question; Skip is `deny`. Never change any other field of the call's input: Claude Code refuses that.
+7. **Answers from outside Orynx (spec 057)**: `chat-answers.ts` answers a question with one question from your Slack or Discord reply, or the desktop app's reply box, through the same `respond()` with `from`. An approval only pings: never let a chat message or a notification allow, deny or Always allow a call.
+8. **Read review requests ahead (spec 057)** starts sessions with no click, so only with Settings › Coding agent's row on (off by default), only spec 050's read-only review, and within its limits. Posting stays the Post dialog's press.
 
 ## Session data
 
